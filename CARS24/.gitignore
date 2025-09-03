@@ -1,0 +1,36 @@
+# Node & Next.js
+**/cars24/.next/
+**/cars24/node_modules/
+**/cars24/.env.local
+**/cars24/.env*
+
+# VSCode
+.vscode/
+
+# Logs
+*.log
+**/logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Dotnet
+**/cars24Api/bin/
+**/cars24Api/obj/
+**/cars24Api/appsettings.Development.json
+**/cars24Api/appsettings.*.json
+**/cars24Api/*.user
+**/cars24Api/.vs/
+**/cars24Api/.idea/
+
+# Docker
+**/docker-compose.override.yml
+**/*.pid
+**/cars24Api/*.db
+**/cars24Api/*.db-shm
+**/cars24Api/*.db-wal
+
+# Build artifacts
+**/dist/
+**/out/
