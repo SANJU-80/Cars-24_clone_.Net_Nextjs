@@ -88,7 +88,7 @@ dotnet restore
 dotnet run
 ```
 
-The API should be available at `http://localhost:5132` or the port configured in `launchSettings.json`.
+The API should be available at `http://localhost:5092` or the port configured in `launchSettings.json`.
 
 ---
 
@@ -98,7 +98,7 @@ The API should be available at `http://localhost:5132` or the port configured in
 
 * Frontend and backend can be deployed separately using Docker or Render's native build system.
 * Make sure each has a `render.yaml` or a service set up.
-* Ensure the backend is bound to port `5132` or use `PORT` env variable in Render.
+* Ensure the backend is bound to port `5092` or use `PORT` env variable in Render.
 
 ---
 
