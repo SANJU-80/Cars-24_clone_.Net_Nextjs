@@ -21,4 +21,4 @@ COPY --from=build /app/out ./
 ENV ASPNETCORE_URLS=http://+:5092
 EXPOSE 5092
 
-ENTRYPOINT ["dotnet", "Cars24Api.dll"]
+ENTRYPOINT ["dotnet", "cars24Api.dll"]
