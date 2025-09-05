@@ -1,8 +1,8 @@
 import { Bell, Calendar, Car, LogOut, Mail, Settings, User } from "lucide-react";
 import { useRouter } from "next/router";
-import React, { useState } from "react";
+import React from "react";
 
-const index = () => {
+const Home = () => {
   const user = {
     id: "1",
     avatar_url: "https://github.com/shadcn.png",
@@ -14,7 +14,7 @@ const index = () => {
   const router = useRouter();
 
   return (
-     <div className="min-h-screen bg-gray-50 text-black">
+    <div className="min-h-screen bg-gray-50 text-black">
       <main className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto">
           <div className="bg-white rounded-lg shadow-md overflow-hidden">
@@ -88,9 +88,7 @@ const index = () => {
                       <span>Appointments</span>
                     </button>
 
-                    <button
-                      className="w-full flex items-center space-x-2 p-3 text-left rounded-lg hover:bg-gray-50 text-red-600"
-                    >
+                    <button className="w-full flex items-center space-x-2 p-3 text-left rounded-lg hover:bg-gray-50 text-red-600">
                       <LogOut className="w-5 h-5" />
                       <span>Sign Out</span>
                     </button>
@@ -105,4 +103,4 @@ const index = () => {
   );
 };
 
-export default index;
+export default Home;
