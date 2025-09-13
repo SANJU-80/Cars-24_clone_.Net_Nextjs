@@ -84,5 +84,3 @@ export function estimateMaintenance(
     brandImage: car.image // Return the image for the brand
   };
 }
-
-<img src={maintenance?.brandImage} alt={brand} />
