@@ -6,7 +6,7 @@ import { getcarSummaries } from "@/lib/Carapi";
 import { ChevronDown, Heart, Search, Sliders } from "lucide-react";
 import Link from "next/link";
 import React, { useEffect, useState } from "react";
-import { estimateMaintenance } from "@/lib/maintenancesapi"; // <-- Added import
+import { estimateMaintenance } from "@/lib/maintenanceapi"; // <-- Added import
 
 const cars = [
  /*{
