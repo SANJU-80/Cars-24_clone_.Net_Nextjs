@@ -3,13 +3,38 @@ type BrandModel = {
   avgAnnualServiceCost: number;
   majorServiceInterval: number;
   tireLife: number;
+  image: string; // Add image property
 };
 
 const BRAND_DATA: BrandModel[] = [
-  { brand: "Maruti", avgAnnualServiceCost: 350, majorServiceInterval: 40000, tireLife: 45000 },
-  { brand: "Hyundai", avgAnnualServiceCost: 400, majorServiceInterval: 40000, tireLife: 40000 },
-  { brand: "Honda", avgAnnualServiceCost: 500, majorServiceInterval: 40000, tireLife: 40000 },
-  { brand: "Tata", avgAnnualServiceCost: 380, majorServiceInterval: 35000, tireLife: 40000 },
+  {
+    brand: "Maruti",
+    avgAnnualServiceCost: 350,
+    majorServiceInterval: 40000,
+    tireLife: 45000,
+    image: "https://images.pexels.com/photos/170811/pexels-photo-170811.jpeg"
+  },
+  {
+    brand: "Hyundai",
+    avgAnnualServiceCost: 400,
+    majorServiceInterval: 40000,
+    tireLife: 40000,
+    image: "https://images.pexels.com/photos/358070/pexels-photo-358070.jpeg"
+  },
+  {
+    brand: "Honda",
+    avgAnnualServiceCost: 500,
+    majorServiceInterval: 40000,
+    tireLife: 40000,
+    image: "https://images.pexels.com/photos/244206/pexels-photo-244206.jpeg"
+  },
+  {
+    brand: "Tata",
+    avgAnnualServiceCost: 380,
+    majorServiceInterval: 35000,
+    tireLife: 40000,
+    image: "https://images.pexels.com/photos/1280560/pexels-photo-1280560.jpeg"
+  },
 ];
 
 function getConditionMultiplier(age: number, km: number): number {
@@ -56,5 +81,6 @@ export function estimateMaintenance(
     nextMajorServiceInKm,
     tireReplacementSoon,
     insights,
+    brandImage: car.image // Return the image for the brand
   };
 }

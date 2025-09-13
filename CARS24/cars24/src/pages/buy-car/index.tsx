@@ -9,7 +9,7 @@ import React, { useEffect, useState } from "react";
 import { estimateMaintenance } from "@/lib/maintenancesapi"; // <-- Added import
 
 const cars = [
- {
+ /*{
      id: "fronx-2023",
      title: "2023 Maruti FRONX DELTA PLUS 1.2L AGS",
      km: "10,048",
@@ -104,7 +104,7 @@ const cars = [
      price: "₹6.75 lakh",
      location: "Dwarka, New Delhi",
      image: "https://images.pexels.com/photos/1280560/pexels-photo-1280560.jpeg",
-   },
+   },*/
 ];
 
 interface Car {
