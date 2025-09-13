@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
 import { getcarSummaries } from "@/lib/Carapi";
+import { estimateMaintenance } from "@/lib/maintenanceEstimator";
 import { ChevronDown, Heart, Search, Sliders } from "lucide-react";
 import Link from "next/link";
 import React, { useEffect, useState } from "react";
@@ -130,6 +131,13 @@ function LoaderCard() {
     </div>
   );
 }
+function parseBrandAndYear(title: string) {
+  const yearMatch = title.match(/^(\d{4})/);
+  const year = yearMatch ? parseInt(yearMatch[1]) : new Date().getFullYear();
+  const brandMatch = title.match(/\d{4}\s+([A-Za-z]+)/);
+  const brand = brandMatch ? brandMatch[1] : "";
+  return { brand, year };
+}
 const index = () => {
   const [priceRange, setPriceRange] = useState([0, 1000000]);
   const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
@@ -225,58 +233,73 @@ const index = () => {
                 ? Array.from({ length: 6 }).map((_N_E_STYLE_LOAD, index) => (
                     <LoaderCard key={index} />
                   ))
-                : cars.map((car) => (
-                    <Link
-                      key={car.id}
-                      href={`/buy-car/${car.id}`}
-                      className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow"
-                    >
-                      <div className="relative h-48">
-                        <img
-                          src={car.image}
-                          alt={car.title}
-                          className="w-full h-full object-cover"
-                        />
-                        <button className="absolute top-2 right-2 p-1.5 bg-white/80 rounded-full hover:bg-white">
-                          <Heart className="h-4 w-4 text-gray-500 hover:text-red-500" />
-                        </button>
-                      </div>
-                      <div className="p-4">
-                        <h3 className="font-semibold text-lg mb-2">
-                          {car.title}
-                        </h3>
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="text-sm text-gray-600">
-                            {car.km} km
-                          </div>
-                          <div className="text-sm text-gray-600">
-                            {car.transmission}
-                          </div>
-                          <div className="text-sm text-gray-600">
-                            {car.fuel}
-                          </div>
-                          <div className="text-sm text-gray-600">
-                            {car.owner}
-                          </div>
+                : cars.map((car) => {
+                    const { brand, year } = parseBrandAndYear(car.title);
+                    const maintenance = estimateMaintenance(brand, year, car.km);
+
+                    return (
+                      <Link
+                        key={car.id}
+                        href={`/buy-car/${car.id}`}
+                        className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow"
+                      >
+                        <div className="relative h-48">
+                          <img
+                            src={car.image}
+                            alt={car.title}
+                            className="w-full h-full object-cover"
+                          />
+                          <button className="absolute top-2 right-2 p-1.5 bg-white/80 rounded-full hover:bg-white">
+                            <Heart className="h-4 w-4 text-gray-500 hover:text-red-500" />
+                          </button>
                         </div>
-                        <div className="flex items-center justify-between">
-                          <div>
+                        <div className="p-4">
+                          <h3 className="font-semibold text-lg mb-2">
+                            {car.title}
+                          </h3>
+                          <div className="flex items-center justify-between mb-2">
                             <div className="text-sm text-gray-600">
-                              EMI from
+                              {car.km} km
                             </div>
-                            <div className="font-semibold">{car.emi}</div>
+                            <div className="text-sm text-gray-600">
+                              {car.transmission}
+                            </div>
+                            <div className="text-sm text-gray-600">
+                              {car.fuel}
+                            </div>
+                            <div className="text-sm text-gray-600">
+                              {car.owner}
+                            </div>
                           </div>
-                          <div className="text-right">
-                            <div className="text-sm text-gray-600">Price</div>
-                            <div className="font-semibold">{car.price}</div>
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <div className="text-sm text-gray-600">
+                                EMI from
+                              </div>
+                              <div className="font-semibold">{car.emi}</div>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-sm text-gray-600">Price</div>
+                              <div className="font-semibold">{car.price}</div>
+                            </div>
+                          </div>
+                          {maintenance && (
+                            <div className="mt-2 text-xs text-blue-700 bg-blue-50 rounded p-2">
+                              <div>
+                                <strong>Est. Maintenance:</strong> ₹{maintenance.monthlyCost}/mo ({maintenance.maintenanceLevel})
+                              </div>
+                              {maintenance.insights.map((insight, idx) => (
+                                <div key={idx}>{insight}</div>
+                              ))}
+                            </div>
+                          )}
+                          <div className="mt-2 text-xs text-gray-500">
+                            {car.location}
                           </div>
                         </div>
-                        <div className="mt-2 text-xs text-gray-500">
-                          {car.location}
-                        </div>
-                      </div>
-                    </Link>
-                  ))}
+                      </Link>
+                    );
+                  })}
             </div>
           </div>
         </div>
