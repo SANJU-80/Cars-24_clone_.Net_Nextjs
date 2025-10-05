@@ -1,5 +1,5 @@
 
-const BASE_URL = "https://cars-24-clone-net-nextjs-vypo.onrender.com/api/Maintenance";
+const BASE_URL = "https://cars-24-clone-net-nextjs-vypo.onrender.com/api/Cars";
 
 export async function getcarSummaries() {
   const res = await fetch(BASE_URL);
