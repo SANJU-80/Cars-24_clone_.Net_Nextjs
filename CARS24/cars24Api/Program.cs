@@ -1,5 +1,5 @@
 using MongoDB.Driver;
-using Cars24API.Services;
+using Cars24Api.Services;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
