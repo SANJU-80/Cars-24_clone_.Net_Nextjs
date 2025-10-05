@@ -1,4 +1,4 @@
-const BASE_URL = "https://cars-24-clone-net-nextjs-vypo.onrender.com/api/Car";
+const BASE_URL = "https://cars-24-clone-net-nextjs-vypo.onrender.com/api/Maintenance";
 
 type BrandModel = {
   brand: string;
@@ -9,7 +9,7 @@ type BrandModel = {
 };
 
 const BRAND_DATA: BrandModel[] = [
-  {
+  /*{
     brand: "Maruti",
     avgAnnualServiceCost: 15000,
     majorServiceInterval: 10000,
@@ -36,7 +36,7 @@ const BRAND_DATA: BrandModel[] = [
     majorServiceInterval: 10000,
     tireLife: 55000,
     image: "https://images.pexels.com/photos/1280560/pexels-photo-1280560.jpeg?auto=compress&w=600"
-  }
+  }*/
 ];
 
 function getConditionMultiplier(age: number, km: number): number {

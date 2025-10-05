@@ -6,10 +6,14 @@ import { getcarSummaries } from "@/lib/Carapi";
 import { ChevronDown, Heart, Search, Sliders } from "lucide-react";
 import Link from "next/link";
 import React, { useEffect, useState } from "react";
-import { estimateMaintenance } from "@/lib/maintenanceapi";
+import { CARS, estimateMaintenance } from "@/lib/maintenanceapi";
 
 interface Car {
   id: string;
+  brand: string;
+  avgAnnualServiceCost: number;
+  majorServiceInterval: number;
+  tireLife: number;
   title: string;
   km: string;
   fuel: string;

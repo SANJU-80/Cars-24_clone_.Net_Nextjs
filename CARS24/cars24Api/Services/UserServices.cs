@@ -1,7 +1,7 @@
-using Cars24API.Models;
+using Cars24Api.Models;
 using MongoDB.Driver;
 
-namespace Cars24API.Services;
+namespace Cars24Api.Services;
 
 public class UserService
 {

@@ -2,7 +2,7 @@ using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 using System;
 
-namespace Cars24API.Models
+namespace Cars24Api.Models
 {
     public class Booking
     {
