@@ -69,18 +69,26 @@ const index = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) {
-      toast.error("Pleasde login to continue");
+      toast.error("Please login to continue");
+      router.push("/login");
       return;
     }
     try {
       const car = await createCar(carDetails);
-      if (car?.id) {
+      const newId = car?.id || car?.Id || car?._id;
+      if (newId) {
         toast.success("Car listed Successfully");
-        router.push(`/bookappointment/${car?.id}`);
+        // Redirect to Buy-Car details page so the user can see the listing like in buy list
+        router.push(`/buy-car/${newId}`);
+      } else {
+        // Fallback: go to listing page even if backend didn't return id
+        toast.success("Car listed. Redirecting to listings.");
+        router.push(`/buy-car`);
       }
     } catch (error) {
       console.error(error);
-      toast.error("Failed to list car");
+      toast.error("Failed to list car. Showing listings instead.");
+      router.push(`/buy-car`);
     }
   };
   return (

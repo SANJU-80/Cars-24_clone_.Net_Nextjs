@@ -41,24 +41,74 @@ function LoaderCard() {
 }
 
 const IndexPage = () => {
-  const [priceRange, setPriceRange] = useState([0, 1000000]);
+  const [priceRange, setPriceRange] = useState([0, 3000000]);
   const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
-  const [cars, setCars] = useState<Car[] | null>(null);
+  const [allCars, setAllCars] = useState<Car[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortBy, setSortBy] = useState<"relevance" | "price_asc" | "price_desc" | "km_asc" | "km_desc">("relevance");
+
+  function parsePriceToRupees(price: string): number {
+    if (!price) return 0;
+    const cleaned = price.replace(/[^0-9.]/g, "").trim();
+    const isLakh = /lakh/i.test(price);
+    const value = parseFloat(cleaned || "0");
+    return Math.round(isLakh ? value * 100000 : value);
+  }
+
+  function parseKm(km: string): number {
+    if (!km) return 0;
+    return parseInt(km.replace(/,/g, "").replace(/[^0-9]/g, "")) || 0;
+  }
 
   useEffect(() => {
     const fetchCars = async () => {
       try {
-        // The API call fails, so `carData` never gets populated.
+        // Try to fetch from API first
         const carData = await getcarSummaries();
-        setCars(carData);
+        setAllCars(carData);
       } catch (err: any) {
-        setError(err.message);
+        console.warn('API call failed, using fallback data:', err.message);
+        // Use fallback data from maintenance API
+        setAllCars(CARS);
+        setError(null); // Clear error since we have fallback data
       }
     };
 
     fetchCars();
   }, []);
+
+  const cars = React.useMemo(() => {
+    if (!allCars) return null;
+
+    const filtered = allCars.filter((car) => {
+      const priceValue = parsePriceToRupees(car.price);
+      const withinPrice = priceValue >= priceRange[0] && priceValue <= priceRange[1];
+
+      const brandSelected = selectedBrands.length === 0
+        ? true
+        : selectedBrands.some((b) => car.title.toLowerCase().includes(b.toLowerCase()));
+
+      const matchesSearch = searchQuery.trim().length === 0
+        ? true
+        : car.title.toLowerCase().includes(searchQuery.toLowerCase());
+
+      return withinPrice && brandSelected && matchesSearch;
+    });
+
+    const sorted = [...filtered];
+    if (sortBy === "price_asc") {
+      sorted.sort((a, b) => parsePriceToRupees(a.price) - parsePriceToRupees(b.price));
+    } else if (sortBy === "price_desc") {
+      sorted.sort((a, b) => parsePriceToRupees(b.price) - parsePriceToRupees(a.price));
+    } else if (sortBy === "km_asc") {
+      sorted.sort((a, b) => parseKm(a.km) - parseKm(b.km));
+    } else if (sortBy === "km_desc") {
+      sorted.sort((a, b) => parseKm(b.km) - parseKm(a.km));
+    }
+
+    return sorted;
+  }, [allCars, priceRange, selectedBrands, searchQuery, sortBy]);
 
   return (
     <div className="bg-gray-100">
@@ -117,14 +167,22 @@ const IndexPage = () => {
               <h1 className="text-2xl font-bold">Used Cars in Delhi NCR</h1>
               <div className="flex items-center space-x-4">
                 <div className="relative">
-                  <Input type="text" placeholder="Search cars..." className="pl-10" />
+                  <Input type="text" placeholder="Search cars..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10" />
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                 </div>
-                <Button variant="outline" className="flex items-center text-white">
-                  <Sliders className="h-4 w-4 mr-2" />
-                  Sort
-                  <ChevronDown className="h-4 w-4 ml-2" />
-                </Button>
+                <div className="relative">
+                  <select
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value as any)}
+                    className="border rounded-md px-3 py-2 text-sm bg-white"
+                  >
+                    <option value="relevance">Sort: Relevance</option>
+                    <option value="price_asc">Price: Low to High</option>
+                    <option value="price_desc">Price: High to Low</option>
+                    <option value="km_asc">KM: Low to High</option>
+                    <option value="km_desc">KM: High to Low</option>
+                  </select>
+                </div>
               </div>
             </div>
 
@@ -137,109 +195,122 @@ const IndexPage = () => {
                 {cars.map((car) => {
                   const { brand, year } = parseBrandAndYear(car.title);
                   const kmValue = parseInt(car.km.replace(/,/g, ""));
-                  const maintenance = estimateMaintenance(brand, year, car.km);
+                  let maintenance = null;
+                  
+                  try {
+                    maintenance = estimateMaintenance(brand, year, car.km);
+                  } catch (err) {
+                    console.warn('Maintenance estimation failed for car:', car.title, err);
+                  }
 
                   return (
-                    <Link
+                    <div
                       key={car.id}
-                      href={`/buy-car/${car.id}`}
                       className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow"
                     >
-                      <div className="relative h-48 bg-gray-200">
-                        {car.image ? (
-                          <img
-                            src={car.image}
-                            alt={car.title}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <div className="flex items-center justify-center h-full text-gray-500">
-                            No Image Available
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="p-4">
-                        <h3 className="font-semibold text-lg mb-2">{car.title}</h3>
-                        <div className="flex items-center justify-between mb-2 text-sm text-gray-600">
-                          <span>{car.km} km</span>
-                          <span>{car.transmission}</span>
-                          <span>{car.fuel}</span>
-                          <span>{car.owner}</span>
-                        </div>
-
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <div className="text-sm text-gray-600">EMI from</div>
-                            <div className="font-semibold">{car.emi}</div>
-                          </div>
-                          <div className="text-right">
-                            <div className="text-sm text-gray-600">Price</div>
-                            <div className="font-semibold">{car.price}</div>
-                          </div>
-                        </div>
-
-                        {maintenance && (
-                          <div className="mt-3 space-y-2">
-                            {/* Maintenance Cost Summary */}
-                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                              <div className="flex items-center justify-between mb-2">
-                                <span className="text-sm font-semibold text-blue-800">
-                                  Est. Maintenance: ₹{maintenance.monthlyCost.toLocaleString()}/mo
-                                </span>
-                                <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                  maintenance.maintenanceLevel === 'Very High' ? 'bg-red-100 text-red-800' :
-                                  maintenance.maintenanceLevel === 'High' ? 'bg-orange-100 text-orange-800' :
-                                  maintenance.maintenanceLevel === 'Moderate' ? 'bg-yellow-100 text-yellow-800' :
-                                  'bg-green-100 text-green-800'
-                                }`}>
-                                  {maintenance.maintenanceLevel}
-                                </span>
-                              </div>
-                              <div className="text-xs text-blue-700">
-                                Annual: ₹{maintenance.annualCost.toLocaleString()} • Multiplier: {maintenance.multiplier}x
-                              </div>
+                      <Link href={`/buy-car/${car.id}`} className="block">
+                        <div className="relative h-48 bg-gray-200">
+                          {car.image ? (
+                            <img
+                              src={car.image}
+                              alt={car.title}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="flex items-center justify-center h-full text-gray-500">
+                              No Image Available
                             </div>
+                          )}
+                        </div>
 
-                            {/* Key Insights */}
-                            <div className="space-y-1">
-                              {maintenance.insights.slice(0, 3).map((insight, idx) => (
-                                <div key={idx} className="text-xs text-gray-600 bg-gray-50 rounded px-2 py-1">
-                                  {insight}
+                        <div className="p-4">
+                          <h3 className="font-semibold text-lg mb-2">{car.title}</h3>
+                          <div className="flex items-center justify-between mb-2 text-sm text-gray-600">
+                            <span>{car.km} km</span>
+                            <span>{car.transmission}</span>
+                            <span>{car.fuel}</span>
+                            <span>{car.owner}</span>
+                          </div>
+
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <div className="text-sm text-gray-600">EMI from</div>
+                              <div className="font-semibold">{car.emi}</div>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-sm text-gray-600">Price</div>
+                              <div className="font-semibold">{car.price}</div>
+                            </div>
+                          </div>
+
+                          {maintenance && (
+                            <div className="mt-3 space-y-2">
+                              {/* Maintenance Cost Summary */}
+                              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                                <div className="flex items-center justify-between mb-2">
+                                  <span className="text-sm font-semibold text-blue-800">
+                                    Est. Maintenance: ₹{maintenance.monthlyCost.toLocaleString()}/mo
+                                  </span>
+                                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                    maintenance.maintenanceLevel === 'Very High' ? 'bg-red-100 text-red-800' :
+                                    maintenance.maintenanceLevel === 'High' ? 'bg-orange-100 text-orange-800' :
+                                    maintenance.maintenanceLevel === 'Moderate' ? 'bg-yellow-100 text-yellow-800' :
+                                    'bg-green-100 text-green-800'
+                                  }`}>
+                                    {maintenance.maintenanceLevel}
+                                  </span>
                                 </div>
-                              ))}
-                              {maintenance.insights.length > 3 && (
-                                <div className="text-xs text-blue-600 font-medium">
-                                  +{maintenance.insights.length - 3} more insights
+                                <div className="text-xs text-blue-700">
+                                  Annual: ₹{maintenance.annualCost.toLocaleString()} • Multiplier: {maintenance.multiplier}x
+                                </div>
+                              </div>
+
+                              {/* Key Insights */}
+                              <div className="space-y-1">
+                                {maintenance.insights.slice(0, 3).map((insight, idx) => (
+                                  <div key={idx} className="text-xs text-gray-600 bg-gray-50 rounded px-2 py-1">
+                                    {insight}
+                                  </div>
+                                ))}
+                                {maintenance.insights.length > 3 && (
+                                  <div className="text-xs text-blue-600 font-medium">
+                                    +{maintenance.insights.length - 3} more insights
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Service Alerts */}
+                              {(maintenance.nextMajorServiceInKm < 5000 || maintenance.tireReplacementSoon || maintenance.brakePadReplacementSoon) && (
+                                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-2">
+                                  <div className="text-xs font-semibold text-yellow-800 mb-1">Service Alerts:</div>
+                                  <div className="space-y-1">
+                                    {maintenance.nextMajorServiceInKm < 5000 && (
+                                      <div className="text-xs text-yellow-700">
+                                        🔧 Service due in {maintenance.nextMajorServiceInKm.toLocaleString()} km
+                                      </div>
+                                    )}
+                                    {maintenance.tireReplacementSoon && (
+                                      <div className="text-xs text-yellow-700">🛞 Tires need replacement</div>
+                                    )}
+                                    {maintenance.brakePadReplacementSoon && (
+                                      <div className="text-xs text-yellow-700">🛑 Brake pads due</div>
+                                    )}
+                                  </div>
                                 </div>
                               )}
                             </div>
+                          )}
 
-                            {/* Service Alerts */}
-                            {(maintenance.nextMajorServiceInKm < 5000 || maintenance.tireReplacementSoon || maintenance.brakePadReplacementSoon) && (
-                              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-2">
-                                <div className="text-xs font-semibold text-yellow-800 mb-1">Service Alerts:</div>
-                                <div className="space-y-1">
-                                  {maintenance.nextMajorServiceInKm < 5000 && (
-                                    <div className="text-xs text-yellow-700">
-                                      🔧 Service due in {maintenance.nextMajorServiceInKm.toLocaleString()} km
-                                    </div>
-                                  )}
-                                  {maintenance.tireReplacementSoon && (
-                                    <div className="text-xs text-yellow-700">🛞 Tires need replacement</div>
-                                  )}
-                                  {maintenance.brakePadReplacementSoon && (
-                                    <div className="text-xs text-yellow-700">🛑 Brake pads due</div>
-                                  )}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        )}
+                          <div className="mt-2 text-xs text-gray-500">{car.location}</div>
+                        </div>
+                      </Link>
 
-                        <div className="mt-2 text-xs text-gray-500">{car.location}</div>
+                      <div className="p-4 pt-0">
+                        <Link href={`/buy-car/${car.id}?buy=1`}>
+                          <Button className="w-full bg-orange-500 hover:bg-orange-600 text-white">Buy Now</Button>
+                        </Link>
                       </div>
-                    </Link>
+                    </div>
                   );
                 })}
               </div>

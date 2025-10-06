@@ -9,7 +9,7 @@ import {
   User,
   X,
 } from "lucide-react";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 type CarDetails = {
   id: string;
   title: string;
@@ -43,6 +43,8 @@ const ImagesAndSpecsForm: React.FC<ImagesAndSpecsFormProps> = ({
 }) => {
   const [isValid, setIsValid] = useState(false);
   const [dragActive, setDragActive] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const placeholderImages = [
     "https://images.pexels.com/photos/112460/pexels-photo-112460.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1",
@@ -63,17 +65,45 @@ const ImagesAndSpecsForm: React.FC<ImagesAndSpecsFormProps> = ({
     setIsValid(!!specsFilled && hasImages);
   }, [carDetails]);
 
-  // In a real implementation, this would handle file uploads
-  const handleImageUpload = () => {
-    // Simulating image upload by using placeholder images
-    if (carDetails.images.length < 10) {
-      const randomImage =
-        placeholderImages[Math.floor(Math.random() * placeholderImages.length)];
-      updateCarDetails({
-        images: [...carDetails.images, randomImage],
+  const handleFiles = async (files: FileList) => {
+    setUploadError(null);
+    const allowedTypes = ["image/jpeg", "image/png"];
+    const maxFiles = 10 - carDetails.images.length;
+    const filesToProcess = Array.from(files).slice(0, Math.max(0, maxFiles));
+
+    if (filesToProcess.length === 0) {
+      setUploadError("You can upload up to 10 photos.");
+      return;
+    }
+
+    const readFileAsDataURL = (file: File) =>
+      new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
       });
+
+    const newImages: string[] = [];
+    for (const file of filesToProcess) {
+      if (!allowedTypes.includes(file.type)) {
+        setUploadError("Only JPEG or PNG images are allowed.");
+        continue;
+      }
+      try {
+        const dataUrl = await readFileAsDataURL(file);
+        newImages.push(dataUrl);
+      } catch (_) {
+        setUploadError("Failed to read one of the files.");
+      }
+    }
+
+    if (newImages.length > 0) {
+      updateCarDetails({ images: [...carDetails.images, ...newImages] });
     }
   };
+
+  const triggerBrowse = () => fileInputRef.current?.click();
 
   const removeImage = (index: number) => {
     const updatedImages = [...carDetails.images];
@@ -138,14 +168,16 @@ const ImagesAndSpecsForm: React.FC<ImagesAndSpecsFormProps> = ({
           onDragOver={handleDrag}
           onDrop={(e) => {
             handleDrag(e);
-            handleImageUpload();
+            if (e.dataTransfer?.files) {
+              handleFiles(e.dataTransfer.files);
+            }
           }}
         >
           <Upload className="h-10 w-10 text-gray-400 mx-auto mb-3" />
           <p className="text-gray-600">Drag photos here or</p>
           <button
             type="button"
-            onClick={handleImageUpload}
+            onClick={triggerBrowse}
             className="mt-2 inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
           >
             Browse Files
@@ -153,6 +185,19 @@ const ImagesAndSpecsForm: React.FC<ImagesAndSpecsFormProps> = ({
           <p className="text-xs text-gray-500 mt-2">
             Add up to 10 photos (JPEG or PNG)
           </p>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/png"
+            multiple
+            className="hidden"
+            onChange={(e) => {
+              if (e.target.files) handleFiles(e.target.files);
+            }}
+          />
+          {uploadError && (
+            <p className="text-xs text-red-600 mt-2">{uploadError}</p>
+          )}
         </div>
         {carDetails.images.length > 0 && (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 mt-4">
@@ -185,7 +230,7 @@ const ImagesAndSpecsForm: React.FC<ImagesAndSpecsFormProps> = ({
             {carDetails.images.length < 10 && (
               <button
                 type="button"
-                onClick={handleImageUpload}
+                onClick={triggerBrowse}
                 className="aspect-video flex items-center justify-center border-2 border-dashed border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
               >
                 <Plus className="h-6 w-6 text-gray-400" />

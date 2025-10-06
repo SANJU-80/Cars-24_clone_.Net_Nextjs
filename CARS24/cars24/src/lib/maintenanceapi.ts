@@ -142,12 +142,34 @@ function getConditionMultiplier(age: number, km: number): number {
 }
 
 export function estimateMaintenance(brand: string, year: number, kmStr: string) {
+  // Input validation
+  if (!brand || !year || !kmStr) {
+    console.warn('Invalid input for maintenance estimation:', { brand, year, kmStr });
+    return null;
+  }
+
   const car = BRAND_DATA.find((b) => brand.includes(b.brand));
-  if (!car) return null;
+  if (!car) {
+    console.warn('Brand not found in maintenance data:', brand);
+    return null;
+  }
 
   const currentYear = new Date().getFullYear();
   const age = currentYear - year;
-  const km = parseInt(kmStr.replace(/,/g, ""));
+  
+  // Parse kilometers with error handling
+  let km: number;
+  try {
+    km = parseInt(kmStr.replace(/,/g, ""));
+    if (isNaN(km) || km < 0) {
+      console.warn('Invalid km value:', kmStr);
+      return null;
+    }
+  } catch (err) {
+    console.warn('Error parsing km value:', kmStr, err);
+    return null;
+  }
+  
   const multiplier = getConditionMultiplier(age, km);
 
   const annualCost = car.avgAnnualServiceCost * multiplier;
@@ -247,6 +269,9 @@ export function parseBrandAndYear(title: string) {
     "Nissan",
     "Skoda",
     "Volkswagen",
+    "BMW",
+    "Mercedes",
+    "Audi",
   ];
   const foundBrand = brandList.find((b) =>
     title.toLowerCase().includes(b.toLowerCase())
@@ -290,5 +315,69 @@ export const CARS = [
     price: "₹3.69 lakh",
     location: "Metro Walk, Rohini, New Delhi",
     image: "https://images.pexels.com/photos/116675/pexels-photo-116675.jpeg?auto=compress&w=600",
+  },
+  {
+    id: "creta-2018",
+    brand: "Hyundai",
+    avgAnnualServiceCost: 18000,
+    majorServiceInterval: 10000,
+    tireLife: 40000,
+    title: "2018 Hyundai Creta SX",
+    km: "45,000",
+    fuel: "Petrol",
+    transmission: "Manual",
+    owner: "1st owner",
+    emi: "₹18,500/m",
+    price: "₹12.50 lakh",
+    location: "Noida, Uttar Pradesh",
+    image: "https://images.pexels.com/photos/244206/pexels-photo-244206.jpeg?auto=compress&w=600",
+  },
+  {
+    id: "city-2020",
+    brand: "Honda",
+    avgAnnualServiceCost: 16000,
+    majorServiceInterval: 10000,
+    tireLife: 50000,
+    title: "2020 Honda City VX",
+    km: "25,000",
+    fuel: "Petrol",
+    transmission: "Manual",
+    owner: "1st owner",
+    emi: "₹22,000/m",
+    price: "₹14.80 lakh",
+    location: "Delhi",
+    image: "https://images.pexels.com/photos/1280560/pexels-photo-1280560.jpeg?auto=compress&w=600",
+  },
+  {
+    id: "innova-2016",
+    brand: "Toyota",
+    avgAnnualServiceCost: 20000,
+    majorServiceInterval: 10000,
+    tireLife: 50000,
+    title: "2016 Toyota Innova Crysta VX",
+    km: "120,000",
+    fuel: "Diesel",
+    transmission: "Manual",
+    owner: "2nd owner",
+    emi: "₹25,000/m",
+    price: "₹18.50 lakh",
+    location: "Bangalore, Karnataka",
+    image: "https://images.pexels.com/photos/170811/pexels-photo-170811.jpeg?auto=compress&w=600",
+  },
+  {
+    id: "nexon-2019",
+    brand: "Tata",
+    avgAnnualServiceCost: 14000,
+    majorServiceInterval: 10000,
+    tireLife: 55000,
+    title: "2019 Tata Nexon XM",
+    km: "52,300",
+    fuel: "Petrol",
+    transmission: "Manual",
+    owner: "1st owner",
+    emi: "₹13,800/m",
+    price: "₹8.90 lakh",
+    location: "Mumbai, Maharashtra",
+    image: "https://images.pexels.com/photos/1280560/pexels-photo-1280560.jpeg?auto=compress&w=600",
   },
 ];
