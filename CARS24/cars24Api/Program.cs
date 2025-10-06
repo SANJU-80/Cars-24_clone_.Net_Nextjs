@@ -20,7 +20,13 @@ builder.Services.AddCors(options =>
               .AllowAnyMethod()
               .AllowAnyHeader();
     });
-
+    options.AddPolicy("AllowNextApp", policy =>
+    {
+        // Allow your frontend to connect
+        policy.WithOrigins("http://localhost:3000")
+              .AllowAnyHeader()
+              .AllowAnyMethod();
+    });
 });
 var app = builder.Build();
 
@@ -45,7 +51,10 @@ app.MapGet("/db-check", async () =>
         return Results.Problem($"Mongodb connection failed:{ex.Message}");
     }
 });
-app.UseCors("AllowAll");
+app.UseCors("AllowNextApp");
+
+app.UseAuthorization();
+
 app.MapControllers();
 
 app.Run();
