@@ -43,14 +43,102 @@ const BRAND_DATA: BrandModel[] = [
     majorServiceInterval: 10000,
     tireLife: 50000,
     image: "https://images.pexels.com/photos/170811/pexels-photo-170811.jpeg?auto=compress&w=600"
+  },
+  {
+    brand: "Kia",
+    avgAnnualServiceCost: 19000,
+    majorServiceInterval: 10000,
+    tireLife: 45000,
+    image: "https://images.pexels.com/photos/116675/pexels-photo-116675.jpeg?auto=compress&w=600"
+  },
+  {
+    brand: "Mahindra",
+    avgAnnualServiceCost: 17000,
+    majorServiceInterval: 10000,
+    tireLife: 50000,
+    image: "https://images.pexels.com/photos/244206/pexels-photo-244206.jpeg?auto=compress&w=600"
+  },
+  {
+    brand: "MG",
+    avgAnnualServiceCost: 22000,
+    majorServiceInterval: 10000,
+    tireLife: 45000,
+    image: "https://images.pexels.com/photos/358070/pexels-photo-358070.jpeg?auto=compress&w=600"
+  },
+  {
+    brand: "Renault",
+    avgAnnualServiceCost: 16000,
+    majorServiceInterval: 10000,
+    tireLife: 40000,
+    image: "https://images.pexels.com/photos/1280560/pexels-photo-1280560.jpeg?auto=compress&w=600"
+  },
+  {
+    brand: "Nissan",
+    avgAnnualServiceCost: 18000,
+    majorServiceInterval: 10000,
+    tireLife: 45000,
+    image: "https://images.pexels.com/photos/170811/pexels-photo-170811.jpeg?auto=compress&w=600"
+  },
+  {
+    brand: "Skoda",
+    avgAnnualServiceCost: 25000,
+    majorServiceInterval: 15000,
+    tireLife: 50000,
+    image: "https://images.pexels.com/photos/116675/pexels-photo-116675.jpeg?auto=compress&w=600"
+  },
+  {
+    brand: "Volkswagen",
+    avgAnnualServiceCost: 24000,
+    majorServiceInterval: 15000,
+    tireLife: 50000,
+    image: "https://images.pexels.com/photos/244206/pexels-photo-244206.jpeg?auto=compress&w=600"
+  },
+  {
+    brand: "BMW",
+    avgAnnualServiceCost: 45000,
+    majorServiceInterval: 15000,
+    tireLife: 40000,
+    image: "https://images.pexels.com/photos/358070/pexels-photo-358070.jpeg?auto=compress&w=600"
+  },
+  {
+    brand: "Mercedes",
+    avgAnnualServiceCost: 50000,
+    majorServiceInterval: 15000,
+    tireLife: 40000,
+    image: "https://images.pexels.com/photos/1280560/pexels-photo-1280560.jpeg?auto=compress&w=600"
+  },
+  {
+    brand: "Audi",
+    avgAnnualServiceCost: 42000,
+    majorServiceInterval: 15000,
+    tireLife: 40000,
+    image: "https://images.pexels.com/photos/170811/pexels-photo-170811.jpeg?auto=compress&w=600"
   }
 ];
 
 function getConditionMultiplier(age: number, km: number): number {
-  if (age > 8 || km > 120_000) return 1.5; // High
-  if (age > 5 || km > 80_000) return 1.3;  // Moderate
-  if (age > 3 || km > 50_000) return 1.1;  // Slight increase
-  return 1.0;                               // Normal
+  // More sophisticated condition assessment
+  let multiplier = 1.0;
+  
+  // Age-based adjustments
+  if (age > 10) multiplier += 0.6;
+  else if (age > 8) multiplier += 0.4;
+  else if (age > 6) multiplier += 0.3;
+  else if (age > 4) multiplier += 0.2;
+  else if (age > 2) multiplier += 0.1;
+  
+  // Mileage-based adjustments
+  if (km > 150_000) multiplier += 0.5;
+  else if (km > 120_000) multiplier += 0.4;
+  else if (km > 100_000) multiplier += 0.3;
+  else if (km > 80_000) multiplier += 0.2;
+  else if (km > 60_000) multiplier += 0.1;
+  
+  // Combined high-risk assessment
+  if (age > 8 && km > 100_000) multiplier += 0.2;
+  if (age > 10 && km > 120_000) multiplier += 0.3;
+  
+  return Math.min(multiplier, 2.0); // Cap at 2.0x
 }
 
 export function estimateMaintenance(brand: string, year: number, kmStr: string) {
@@ -65,27 +153,79 @@ export function estimateMaintenance(brand: string, year: number, kmStr: string) 
   const annualCost = car.avgAnnualServiceCost * multiplier;
   const monthlyCost = Math.round(annualCost / 12);
 
-  let maintenanceLevel: "Low" | "Moderate" | "High" = "Low";
-  if (multiplier >= 1.5) maintenanceLevel = "High";
-  else if (multiplier >= 1.3) maintenanceLevel = "Moderate";
+  // Enhanced maintenance level categorization
+  let maintenanceLevel: "Low" | "Moderate" | "High" | "Very High" = "Low";
+  if (multiplier >= 1.8) maintenanceLevel = "Very High";
+  else if (multiplier >= 1.5) maintenanceLevel = "High";
+  else if (multiplier >= 1.2) maintenanceLevel = "Moderate";
 
+  // Calculate service intervals
   const nextMajorServiceInKm = car.majorServiceInterval - (km % car.majorServiceInterval);
   const tireReplacementSoon = (car.tireLife - (km % car.tireLife)) < 5000;
+  const brakePadReplacementSoon = (30000 - (km % 30000)) < 3000; // Brake pads every 30k km
+  const batteryReplacementSoon = age > 3 && (40000 - (km % 40000)) < 5000; // Battery every 3-4 years
 
+  // Generate comprehensive insights
   const insights: string[] = [];
-  if (maintenanceLevel === "High") insights.push("High Maintenance Expected");
-  else if (maintenanceLevel === "Moderate") insights.push("Moderate Maintenance Expected");
+  
+  // Maintenance level insights
+  if (maintenanceLevel === "Very High") {
+    insights.push("⚠️ Very High Maintenance Expected");
+    insights.push("Consider comprehensive inspection before purchase");
+  } else if (maintenanceLevel === "High") {
+    insights.push("🔧 High Maintenance Expected");
+  } else if (maintenanceLevel === "Moderate") {
+    insights.push("⚙️ Moderate Maintenance Expected");
+  } else {
+    insights.push("✅ Low Maintenance Expected");
+  }
 
-  if (nextMajorServiceInKm < 5000) insights.push(`Next major service due in ${nextMajorServiceInKm} km`);
-  if (tireReplacementSoon) insights.push("Expected tire replacement soon");
+  // Service reminders
+  if (nextMajorServiceInKm < 2000) {
+    insights.push(`🔧 Next major service due in ${nextMajorServiceInKm.toLocaleString()} km`);
+  } else if (nextMajorServiceInKm < 5000) {
+    insights.push(`📅 Major service due in ${nextMajorServiceInKm.toLocaleString()} km`);
+  }
+
+  // Component replacement alerts
+  if (tireReplacementSoon) {
+    insights.push("🛞 Tire replacement expected soon");
+  }
+  if (brakePadReplacementSoon) {
+    insights.push("🛑 Brake pad replacement due soon");
+  }
+  if (batteryReplacementSoon) {
+    insights.push("🔋 Battery replacement may be needed");
+  }
+
+  // Age and mileage warnings
+  if (age > 8) {
+    insights.push(`📅 ${age}-year-old vehicle - higher maintenance likely`);
+  }
+  if (km > 100_000) {
+    insights.push(`🛣️ High mileage (${km.toLocaleString()} km) - increased wear expected`);
+  }
+
+  // Brand-specific insights
+  if (["BMW", "Mercedes", "Audi"].includes(car.brand)) {
+    insights.push("💎 Premium brand - higher service costs");
+  } else if (["Maruti", "Tata"].includes(car.brand)) {
+    insights.push("💰 Budget-friendly maintenance costs");
+  }
 
   return {
     monthlyCost,
+    annualCost: Math.round(annualCost),
     maintenanceLevel,
     nextMajorServiceInKm,
     tireReplacementSoon,
+    brakePadReplacementSoon,
+    batteryReplacementSoon,
     insights,
-    brandImage: car.image
+    brandImage: car.image,
+    multiplier: Math.round(multiplier * 100) / 100,
+    age,
+    km
   };
 }
 

@@ -36,4 +36,27 @@ namespace Cars24Api.Models
         [BsonElement("BrandImage")]
         public string BrandImage { get; set; } = string.Empty;
     }
+
+    public class MaintenanceEstimateRequest
+    {
+        public string Brand { get; set; } = string.Empty;
+        public int Year { get; set; }
+        public string Km { get; set; } = string.Empty;
+    }
+
+    public class MaintenanceEstimateResponse
+    {
+        public int MonthlyCost { get; set; }
+        public int AnnualCost { get; set; }
+        public string MaintenanceLevel { get; set; } = string.Empty;
+        public int NextMajorServiceInKm { get; set; }
+        public bool TireReplacementSoon { get; set; }
+        public bool BrakePadReplacementSoon { get; set; }
+        public bool BatteryReplacementSoon { get; set; }
+        public List<string> Insights { get; set; } = new List<string>();
+        public string BrandImage { get; set; } = string.Empty;
+        public double Multiplier { get; set; }
+        public int Age { get; set; }
+        public int Km { get; set; }
+    }
 }

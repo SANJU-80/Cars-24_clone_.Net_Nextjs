@@ -1,4 +1,3 @@
-// pages/buy-car/index.tsx
 "use client";
 
 import { Button } from "@/components/ui/button";
@@ -50,6 +49,7 @@ const IndexPage = () => {
   useEffect(() => {
     const fetchCars = async () => {
       try {
+        // The API call fails, so `carData` never gets populated.
         const carData = await getcarSummaries();
         setCars(carData);
       } catch (err: any) {
@@ -180,14 +180,60 @@ const IndexPage = () => {
                         </div>
 
                         {maintenance && (
-                          <div className="mt-2 text-xs text-blue-700 bg-blue-50 rounded p-2">
-                            <div>
-                              <strong>Est. Maintenance:</strong> ₹{maintenance.monthlyCost}/mo (
-                              {maintenance.maintenanceLevel})
+                          <div className="mt-3 space-y-2">
+                            {/* Maintenance Cost Summary */}
+                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                              <div className="flex items-center justify-between mb-2">
+                                <span className="text-sm font-semibold text-blue-800">
+                                  Est. Maintenance: ₹{maintenance.monthlyCost.toLocaleString()}/mo
+                                </span>
+                                <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                  maintenance.maintenanceLevel === 'Very High' ? 'bg-red-100 text-red-800' :
+                                  maintenance.maintenanceLevel === 'High' ? 'bg-orange-100 text-orange-800' :
+                                  maintenance.maintenanceLevel === 'Moderate' ? 'bg-yellow-100 text-yellow-800' :
+                                  'bg-green-100 text-green-800'
+                                }`}>
+                                  {maintenance.maintenanceLevel}
+                                </span>
+                              </div>
+                              <div className="text-xs text-blue-700">
+                                Annual: ₹{maintenance.annualCost.toLocaleString()} • Multiplier: {maintenance.multiplier}x
+                              </div>
                             </div>
-                            {maintenance.insights.map((insight, idx) => (
-                              <div key={idx}>{insight}</div>
-                            ))}
+
+                            {/* Key Insights */}
+                            <div className="space-y-1">
+                              {maintenance.insights.slice(0, 3).map((insight, idx) => (
+                                <div key={idx} className="text-xs text-gray-600 bg-gray-50 rounded px-2 py-1">
+                                  {insight}
+                                </div>
+                              ))}
+                              {maintenance.insights.length > 3 && (
+                                <div className="text-xs text-blue-600 font-medium">
+                                  +{maintenance.insights.length - 3} more insights
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Service Alerts */}
+                            {(maintenance.nextMajorServiceInKm < 5000 || maintenance.tireReplacementSoon || maintenance.brakePadReplacementSoon) && (
+                              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-2">
+                                <div className="text-xs font-semibold text-yellow-800 mb-1">Service Alerts:</div>
+                                <div className="space-y-1">
+                                  {maintenance.nextMajorServiceInKm < 5000 && (
+                                    <div className="text-xs text-yellow-700">
+                                      🔧 Service due in {maintenance.nextMajorServiceInKm.toLocaleString()} km
+                                    </div>
+                                  )}
+                                  {maintenance.tireReplacementSoon && (
+                                    <div className="text-xs text-yellow-700">🛞 Tires need replacement</div>
+                                  )}
+                                  {maintenance.brakePadReplacementSoon && (
+                                    <div className="text-xs text-yellow-700">🛑 Brake pads due</div>
+                                  )}
+                                </div>
+                              </div>
+                            )}
                           </div>
                         )}
 

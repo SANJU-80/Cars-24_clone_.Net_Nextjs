@@ -40,5 +40,20 @@ namespace Cars24Api.Controllers
             await _maintenanceService.CreateAsync(maintenance);
             return CreatedAtAction(nameof(GetById), new { id = maintenance.Id }, maintenance);
         }
+
+        // POST: api/Maintenance/estimate
+        [HttpPost("estimate")]
+        public async Task<ActionResult> EstimateMaintenance([FromBody] MaintenanceEstimateRequest request)
+        {
+            try
+            {
+                var estimate = await _maintenanceService.EstimateMaintenanceAsync(request.Brand, request.Year, request.Km);
+                return Ok(estimate);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
+        }
     }
 }

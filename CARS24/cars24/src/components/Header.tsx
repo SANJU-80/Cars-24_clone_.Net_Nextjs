@@ -28,11 +28,13 @@ const Header = () => {
     { name: "Car finance", href: "/finance" },
     { name: "New cars", href: "/new-cars" },
     { name: "Car services", href: "/services" },
+    { name: "Maintenance", href: "/maintenance-calculator" },
   ];
   const menuItems = [
     { label: "My Appointments", icon: Calendar, link: "/appointments" },
     { label: "My Bookings", icon: Package, link: "/bookings" },
     { label: "My Orders", icon: FileText, link: "/orders" },
+    { label: "Maintenance Dashboard", icon: Car, link: "/maintenance-dashboard" },
     { label: "Resources", icon: FileText, link: "/resources" },
     { label: "RC Transfer Status", icon: FileText, link: "/rc-transfer" },
     { label: "Become Our Partner", icon: Users, link: "/partner" },
