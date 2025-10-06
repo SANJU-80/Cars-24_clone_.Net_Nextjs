@@ -1,12 +1,14 @@
+// pages/buy-car/index.tsx
 "use client";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
 import { getcarSummaries } from "@/lib/Carapi";
-import { ChevronDown, Heart, Search, Sliders } from "lucide-react";
+import { ChevronDown, Search, Sliders } from "lucide-react";
 import Link from "next/link";
 import React, { useEffect, useState } from "react";
-import { CARS, estimateMaintenance } from "@/lib/maintenanceapi";
+import { CARS, parseBrandAndYear, estimateMaintenance } from "@/lib/maintenanceapi";
 
 interface Car {
   id: string;
@@ -39,25 +41,22 @@ function LoaderCard() {
   );
 }
 
-// Helper to extract brand and year
-function parseBrandAndYear(title: string) {
-  const yearMatch = title.match(/^(\d{4})/);
-  const year = yearMatch ? parseInt(yearMatch[1]) : new Date().getFullYear();
-  const brandMatch = title.match(/\d{4}\s+([A-Za-z]+)/);
-  const brand = brandMatch ? brandMatch[1] : "";
-  return { brand, year };
-}
-
 const IndexPage = () => {
   const [priceRange, setPriceRange] = useState([0, 1000000]);
   const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
   const [cars, setCars] = useState<Car[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchCars = async () => {
-      const carData = await getcarSummaries();
-      setCars(carData);
+      try {
+        const carData = await getcarSummaries();
+        setCars(carData);
+      } catch (err: any) {
+        setError(err.message);
+      }
     };
+
     fetchCars();
   }, []);
 
@@ -65,8 +64,7 @@ const IndexPage = () => {
     <div className="bg-gray-100">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 bg-white text-black">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          
-          {/* Filter */}
+          {/* Filters */}
           <div className="md:col-span-1 space-y-6">
             <div className="bg-white p-4 rounded-lg shadow">
               <h3 className="font-semibold mb-4">Filters</h3>
@@ -86,6 +84,7 @@ const IndexPage = () => {
                     <span>₹{priceRange[1]}</span>
                   </div>
                 </div>
+
                 <div>
                   <label className="text-sm font-medium mb-2 block">Brand</label>
                   <div className="space-y-2">
@@ -93,17 +92,17 @@ const IndexPage = () => {
                       <label key={brand} className="flex items-center">
                         <input
                           type="checkbox"
-                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                           checked={selectedBrands.includes(brand)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setSelectedBrands([...selectedBrands, brand]);
-                            } else {
-                              setSelectedBrands(selectedBrands.filter((b) => b !== brand));
-                            }
-                          }}
+                          onChange={(e) =>
+                            setSelectedBrands((prev) =>
+                              e.target.checked
+                                ? [...prev, brand]
+                                : prev.filter((b) => b !== brand)
+                            )
+                          }
+                          className="mr-2"
                         />
-                        <span className="ml-2 text-sm">{brand}</span>
+                        <span>{brand}</span>
                       </label>
                     ))}
                   </div>
@@ -129,68 +128,76 @@ const IndexPage = () => {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {cars === null
-                ? Array.from({ length: 6 }).map((_, index) => <LoaderCard key={index} />)
-                : cars.map((car) => {
-                    const { brand, year } = parseBrandAndYear(car.title);
-                    const maintenance = estimateMaintenance(
-                      brand,
-                      year,
-                      car.km
-                    );
+            {error ? (
+              <div className="text-red-600 font-semibold">🚨 {error}</div>
+            ) : cars === null ? (
+              Array.from({ length: 6 }).map((_, index) => <LoaderCard key={index} />)
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {cars.map((car) => {
+                  const { brand, year } = parseBrandAndYear(car.title);
+                  const kmValue = parseInt(car.km.replace(/,/g, ""));
+                  const maintenance = estimateMaintenance(brand, year, car.km);
 
-                    return (
-                      <Link
-                        key={car.id}
-                        href={`/buy-car/${car.id}`}
-                        className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow"
-                      >
-                        <div className="relative h-48">
+                  return (
+                    <Link
+                      key={car.id}
+                      href={`/buy-car/${car.id}`}
+                      className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow"
+                    >
+                      <div className="relative h-48 bg-gray-200">
+                        {car.image ? (
                           <img
                             src={car.image}
                             alt={car.title}
                             className="w-full h-full object-cover"
                           />
-                          <button className="absolute top-2 right-2 p-1.5 bg-white/80 rounded-full hover:bg-white">
-                            <Heart className="h-4 w-4 text-gray-500 hover:text-red-500" />
-                          </button>
-                        </div>
-                        <div className="p-4">
-                          <h3 className="font-semibold text-lg mb-2">{car.title}</h3>
-                          <div className="flex items-center justify-between mb-2">
-                            <div className="text-sm text-gray-600">{car.km} km</div>
-                            <div className="text-sm text-gray-600">{car.transmission}</div>
-                            <div className="text-sm text-gray-600">{car.fuel}</div>
-                            <div className="text-sm text-gray-600">{car.owner}</div>
+                        ) : (
+                          <div className="flex items-center justify-center h-full text-gray-500">
+                            No Image Available
                           </div>
-                          <div className="flex items-center justify-between">
+                        )}
+                      </div>
+
+                      <div className="p-4">
+                        <h3 className="font-semibold text-lg mb-2">{car.title}</h3>
+                        <div className="flex items-center justify-between mb-2 text-sm text-gray-600">
+                          <span>{car.km} km</span>
+                          <span>{car.transmission}</span>
+                          <span>{car.fuel}</span>
+                          <span>{car.owner}</span>
+                        </div>
+
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="text-sm text-gray-600">EMI from</div>
+                            <div className="font-semibold">{car.emi}</div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-sm text-gray-600">Price</div>
+                            <div className="font-semibold">{car.price}</div>
+                          </div>
+                        </div>
+
+                        {maintenance && (
+                          <div className="mt-2 text-xs text-blue-700 bg-blue-50 rounded p-2">
                             <div>
-                              <div className="text-sm text-gray-600">EMI from</div>
-                              <div className="font-semibold">{car.emi}</div>
+                              <strong>Est. Maintenance:</strong> ₹{maintenance.monthlyCost}/mo (
+                              {maintenance.maintenanceLevel})
                             </div>
-                            <div className="text-right">
-                              <div className="text-sm text-gray-600">Price</div>
-                              <div className="font-semibold">{car.price}</div>
-                            </div>
+                            {maintenance.insights.map((insight, idx) => (
+                              <div key={idx}>{insight}</div>
+                            ))}
                           </div>
-                          {maintenance && (
-                            <div className="mt-2 text-xs text-blue-700 bg-blue-50 rounded p-2">
-                              <div>
-                                <strong>Est. Maintenance:</strong> ₹{maintenance.monthlyCost}/mo (
-                                {maintenance.maintenanceLevel})
-                              </div>
-                              {maintenance.insights.map((insight, idx) => (
-                                <div key={idx}>{insight}</div>
-                              ))}
-                            </div>
-                          )}
-                          <div className="mt-2 text-xs text-gray-500">{car.location}</div>
-                        </div>
-                      </Link>
-                    );
-                  })}
-            </div>
+                        )}
+
+                        <div className="mt-2 text-xs text-gray-500">{car.location}</div>
+                      </div>
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       </div>

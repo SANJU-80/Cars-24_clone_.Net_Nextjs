@@ -89,6 +89,35 @@ export function estimateMaintenance(brand: string, year: number, kmStr: string) 
   };
 }
 
+// ✅ Moved outside (fixes the modifier error)
+export function parseBrandAndYear(title: string) {
+  const yearMatch = title.match(/\b(19|20)\d{2}\b/);
+  const year = yearMatch ? parseInt(yearMatch[0]) : new Date().getFullYear();
+
+  const brandList = [
+    "Maruti",
+    "Hyundai",
+    "Honda",
+    "Tata",
+    "Toyota",
+    "Kia",
+    "Mahindra",
+    "MG",
+    "Renault",
+    "Nissan",
+    "Skoda",
+    "Volkswagen",
+  ];
+  const foundBrand = brandList.find((b) =>
+    title.toLowerCase().includes(b.toLowerCase())
+  );
+
+  return {
+    brand: foundBrand || "Unknown",
+    year,
+  };
+}
+
 export const CARS = [
   {
     id: "fronx-2023",
@@ -122,5 +151,4 @@ export const CARS = [
     location: "Metro Walk, Rohini, New Delhi",
     image: "https://images.pexels.com/photos/116675/pexels-photo-116675.jpeg?auto=compress&w=600",
   },
-  // You can keep adding more cars from your existing CARS array
 ];
