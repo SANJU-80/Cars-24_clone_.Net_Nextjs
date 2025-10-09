@@ -1,383 +1,94 @@
 const BASE_URL = "https://cars-24-clone-net-nextjs-vypo.onrender.com/api/Maintenance";
 
-type BrandModel = {
+export type MaintenanceRequest = {
+  carId: string;
   brand: string;
-  avgAnnualServiceCost: number;
-  majorServiceInterval: number;
-  tireLife: number;
-  image: string;
+  model: string;
+  year: number;
+  mileage: number;
+  condition: string;
 };
 
-const BRAND_DATA: BrandModel[] = [
-  {
-    brand: "Maruti",
-    avgAnnualServiceCost: 15000,
-    majorServiceInterval: 10000,
-    tireLife: 45000,
-    image: "https://images.pexels.com/photos/170811/pexels-photo-170811.jpeg?auto=compress&w=600"
-  },
-  {
-    brand: "Hyundai",
-    avgAnnualServiceCost: 18000,
-    majorServiceInterval: 10000,
-    tireLife: 40000,
-    image: "https://images.pexels.com/photos/358070/pexels-photo-358070.jpeg?auto=compress&w=600"
-  },
-  {
-    brand: "Honda",
-    avgAnnualServiceCost: 16000,
-    majorServiceInterval: 10000,
-    tireLife: 50000,
-    image: "https://images.pexels.com/photos/244206/pexels-photo-244206.jpeg?auto=compress&w=600"
-  },
-  {
-    brand: "Tata",
-    avgAnnualServiceCost: 14000,
-    majorServiceInterval: 10000,
-    tireLife: 55000,
-    image: "https://images.pexels.com/photos/1280560/pexels-photo-1280560.jpeg?auto=compress&w=600"
-  },
-  {
-    brand: "Toyota",
-    avgAnnualServiceCost: 20000,
-    majorServiceInterval: 10000,
-    tireLife: 50000,
-    image: "https://images.pexels.com/photos/170811/pexels-photo-170811.jpeg?auto=compress&w=600"
-  },
-  {
-    brand: "Kia",
-    avgAnnualServiceCost: 19000,
-    majorServiceInterval: 10000,
-    tireLife: 45000,
-    image: "https://images.pexels.com/photos/116675/pexels-photo-116675.jpeg?auto=compress&w=600"
-  },
-  {
-    brand: "Mahindra",
-    avgAnnualServiceCost: 17000,
-    majorServiceInterval: 10000,
-    tireLife: 50000,
-    image: "https://images.pexels.com/photos/244206/pexels-photo-244206.jpeg?auto=compress&w=600"
-  },
-  {
-    brand: "MG",
-    avgAnnualServiceCost: 22000,
-    majorServiceInterval: 10000,
-    tireLife: 45000,
-    image: "https://images.pexels.com/photos/358070/pexels-photo-358070.jpeg?auto=compress&w=600"
-  },
-  {
-    brand: "Renault",
-    avgAnnualServiceCost: 16000,
-    majorServiceInterval: 10000,
-    tireLife: 40000,
-    image: "https://images.pexels.com/photos/1280560/pexels-photo-1280560.jpeg?auto=compress&w=600"
-  },
-  {
-    brand: "Nissan",
-    avgAnnualServiceCost: 18000,
-    majorServiceInterval: 10000,
-    tireLife: 45000,
-    image: "https://images.pexels.com/photos/170811/pexels-photo-170811.jpeg?auto=compress&w=600"
-  },
-  {
-    brand: "Skoda",
-    avgAnnualServiceCost: 25000,
-    majorServiceInterval: 15000,
-    tireLife: 50000,
-    image: "https://images.pexels.com/photos/116675/pexels-photo-116675.jpeg?auto=compress&w=600"
-  },
-  {
-    brand: "Volkswagen",
-    avgAnnualServiceCost: 24000,
-    majorServiceInterval: 15000,
-    tireLife: 50000,
-    image: "https://images.pexels.com/photos/244206/pexels-photo-244206.jpeg?auto=compress&w=600"
-  },
-  {
-    brand: "BMW",
-    avgAnnualServiceCost: 45000,
-    majorServiceInterval: 15000,
-    tireLife: 40000,
-    image: "https://images.pexels.com/photos/358070/pexels-photo-358070.jpeg?auto=compress&w=600"
-  },
-  {
-    brand: "Mercedes",
-    avgAnnualServiceCost: 50000,
-    majorServiceInterval: 15000,
-    tireLife: 40000,
-    image: "https://images.pexels.com/photos/1280560/pexels-photo-1280560.jpeg?auto=compress&w=600"
-  },
-  {
-    brand: "Audi",
-    avgAnnualServiceCost: 42000,
-    majorServiceInterval: 15000,
-    tireLife: 40000,
-    image: "https://images.pexels.com/photos/170811/pexels-photo-170811.jpeg?auto=compress&w=600"
-  }
-];
+export type ServicePrediction = {
+  serviceType: string;
+  mileageDue: number;
+  kmRemaining: number;
+  estimatedCost: number;
+  priority: string;
+  description: string;
+};
 
-function getConditionMultiplier(age: number, km: number): number {
-  // More sophisticated condition assessment
-  let multiplier = 1.0;
-  
-  // Age-based adjustments
-  if (age > 10) multiplier += 0.6;
-  else if (age > 8) multiplier += 0.4;
-  else if (age > 6) multiplier += 0.3;
-  else if (age > 4) multiplier += 0.2;
-  else if (age > 2) multiplier += 0.1;
-  
-  // Mileage-based adjustments
-  if (km > 150_000) multiplier += 0.5;
-  else if (km > 120_000) multiplier += 0.4;
-  else if (km > 100_000) multiplier += 0.3;
-  else if (km > 80_000) multiplier += 0.2;
-  else if (km > 60_000) multiplier += 0.1;
-  
-  // Combined high-risk assessment
-  if (age > 8 && km > 100_000) multiplier += 0.2;
-  if (age > 10 && km > 120_000) multiplier += 0.3;
-  
-  return Math.min(multiplier, 2.0); // Cap at 2.0x
-}
+export type ComponentReplacement = {
+  component: string;
+  mileageDue: number;
+  kmRemaining: number;
+  estimatedCost: number;
+  priority: string;
+  description: string;
+};
 
-export function estimateMaintenance(brand: string, year: number, kmStr: string) {
-  // Input validation
-  if (!brand || !year || !kmStr) {
-    console.warn('Invalid input for maintenance estimation:', { brand, year, kmStr });
-    return null;
-  }
+export type MaintenanceEstimate = {
+  id?: string;
+  carId: string;
+  brand: string;
+  model: string;
+  year: number;
+  mileage: number;
+  condition: string;
+  monthlyMaintenanceCost: number;
+  annualMaintenanceCost: number;
+  maintenanceLevel: string;
+  upcomingServices: ServicePrediction[];
+  componentReplacements: ComponentReplacement[];
+  riskFactors: string[];
+  recommendations: string[];
+  estimatedAt: string;
+};
 
-  const car = BRAND_DATA.find((b) => brand.includes(b.brand));
-  if (!car) {
-    console.warn('Brand not found in maintenance data:', brand);
-    return null;
-  }
-
-  const currentYear = new Date().getFullYear();
-  const age = currentYear - year;
-  
-  // Parse kilometers with error handling
-  let km: number;
+export const getMaintenanceEstimate = async (request: MaintenanceRequest): Promise<MaintenanceEstimate> => {
   try {
-    km = parseInt(kmStr.replace(/,/g, ""));
-    if (isNaN(km) || km < 0) {
-      console.warn('Invalid km value:', kmStr);
-      return null;
+    const response = await fetch(`${BASE_URL}/estimate`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(request),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || `HTTP ${response.status}`);
     }
-  } catch (err) {
-    console.warn('Error parsing km value:', kmStr, err);
-    return null;
+
+    return await response.json();
+  } catch (error: any) {
+    console.error("Maintenance estimate error:", error);
+    throw new Error(`Failed to get maintenance estimate: ${error.message}`);
   }
-  
-  const multiplier = getConditionMultiplier(age, km);
+};
 
-  const annualCost = car.avgAnnualServiceCost * multiplier;
-  const monthlyCost = Math.round(annualCost / 12);
-
-  // Enhanced maintenance level categorization
-  let maintenanceLevel: "Low" | "Moderate" | "High" | "Very High" = "Low";
-  if (multiplier >= 1.8) maintenanceLevel = "Very High";
-  else if (multiplier >= 1.5) maintenanceLevel = "High";
-  else if (multiplier >= 1.2) maintenanceLevel = "Moderate";
-
-  // Calculate service intervals
-  const nextMajorServiceInKm = car.majorServiceInterval - (km % car.majorServiceInterval);
-  const tireReplacementSoon = (car.tireLife - (km % car.tireLife)) < 5000;
-  const brakePadReplacementSoon = (30000 - (km % 30000)) < 3000; // Brake pads every 30k km
-  const batteryReplacementSoon = age > 3 && (40000 - (km % 40000)) < 5000; // Battery every 3-4 years
-
-  // Generate comprehensive insights
-  const insights: string[] = [];
-  
-  // Maintenance level insights
-  if (maintenanceLevel === "Very High") {
-    insights.push("⚠️ Very High Maintenance Expected");
-    insights.push("Consider comprehensive inspection before purchase");
-  } else if (maintenanceLevel === "High") {
-    insights.push("🔧 High Maintenance Expected");
-  } else if (maintenanceLevel === "Moderate") {
-    insights.push("⚙️ Moderate Maintenance Expected");
-  } else {
-    insights.push("✅ Low Maintenance Expected");
+export const getSupportedBrands = async (): Promise<string[]> => {
+  try {
+    const response = await fetch(`${BASE_URL}/brands`);
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    return await response.json();
+  } catch (error: any) {
+    console.error("Get brands error:", error);
+    throw new Error(`Failed to get supported brands: ${error.message}`);
   }
+};
 
-  // Service reminders
-  if (nextMajorServiceInKm < 2000) {
-    insights.push(`🔧 Next major service due in ${nextMajorServiceInKm.toLocaleString()} km`);
-  } else if (nextMajorServiceInKm < 5000) {
-    insights.push(`📅 Major service due in ${nextMajorServiceInKm.toLocaleString()} km`);
+export const getConditionOptions = async (): Promise<string[]> => {
+  try {
+    const response = await fetch(`${BASE_URL}/conditions`);
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    return await response.json();
+  } catch (error: any) {
+    console.error("Get conditions error:", error);
+    throw new Error(`Failed to get condition options: ${error.message}`);
   }
-
-  // Component replacement alerts
-  if (tireReplacementSoon) {
-    insights.push("🛞 Tire replacement expected soon");
-  }
-  if (brakePadReplacementSoon) {
-    insights.push("🛑 Brake pad replacement due soon");
-  }
-  if (batteryReplacementSoon) {
-    insights.push("🔋 Battery replacement may be needed");
-  }
-
-  // Age and mileage warnings
-  if (age > 8) {
-    insights.push(`📅 ${age}-year-old vehicle - higher maintenance likely`);
-  }
-  if (km > 100_000) {
-    insights.push(`🛣️ High mileage (${km.toLocaleString()} km) - increased wear expected`);
-  }
-
-  // Brand-specific insights
-  if (["BMW", "Mercedes", "Audi"].includes(car.brand)) {
-    insights.push("💎 Premium brand - higher service costs");
-  } else if (["Maruti", "Tata"].includes(car.brand)) {
-    insights.push("💰 Budget-friendly maintenance costs");
-  }
-
-  return {
-    monthlyCost,
-    annualCost: Math.round(annualCost),
-    maintenanceLevel,
-    nextMajorServiceInKm,
-    tireReplacementSoon,
-    brakePadReplacementSoon,
-    batteryReplacementSoon,
-    insights,
-    brandImage: car.image,
-    multiplier: Math.round(multiplier * 100) / 100,
-    age,
-    km
-  };
-}
-
-// ✅ Moved outside (fixes the modifier error)
-export function parseBrandAndYear(title: string) {
-  const yearMatch = title.match(/\b(19|20)\d{2}\b/);
-  const year = yearMatch ? parseInt(yearMatch[0]) : new Date().getFullYear();
-
-  const brandList = [
-    "Maruti",
-    "Hyundai",
-    "Honda",
-    "Tata",
-    "Toyota",
-    "Kia",
-    "Mahindra",
-    "MG",
-    "Renault",
-    "Nissan",
-    "Skoda",
-    "Volkswagen",
-    "BMW",
-    "Mercedes",
-    "Audi",
-  ];
-  const foundBrand = brandList.find((b) =>
-    title.toLowerCase().includes(b.toLowerCase())
-  );
-
-  return {
-    brand: foundBrand || "Unknown",
-    year,
-  };
-}
-
-export const CARS = [
-  {
-    id: "fronx-2023",
-    brand: "Maruti",
-    avgAnnualServiceCost: 15000,
-    majorServiceInterval: 10000,
-    tireLife: 45000,
-    title: "2023 Maruti FRONX DELTA PLUS 1.2L AGS",
-    km: "10,048",
-    fuel: "Petrol",
-    transmission: "Auto",
-    owner: "1st owner",
-    emi: "₹15,245/m",
-    price: "₹7.80 lakh",
-    location: "Metro Walk, Rohini, New Delhi",
-    image: "https://images.pexels.com/photos/170811/pexels-photo-170811.jpeg?auto=compress&w=600",
-  },
-  {
-    id: "swift-2017",
-    brand: "Maruti",
-    avgAnnualServiceCost: 12000,
-    majorServiceInterval: 10000,
-    tireLife: 45000,
-    title: "2017 Maruti Swift VXI (O)",
-    km: "60,056",
-    fuel: "Petrol",
-    transmission: "Manual",
-    owner: "1st owner",
-    emi: "₹7,214/m",
-    price: "₹3.69 lakh",
-    location: "Metro Walk, Rohini, New Delhi",
-    image: "https://images.pexels.com/photos/116675/pexels-photo-116675.jpeg?auto=compress&w=600",
-  },
-  {
-    id: "creta-2018",
-    brand: "Hyundai",
-    avgAnnualServiceCost: 18000,
-    majorServiceInterval: 10000,
-    tireLife: 40000,
-    title: "2018 Hyundai Creta SX",
-    km: "45,000",
-    fuel: "Petrol",
-    transmission: "Manual",
-    owner: "1st owner",
-    emi: "₹18,500/m",
-    price: "₹12.50 lakh",
-    location: "Noida, Uttar Pradesh",
-    image: "https://images.pexels.com/photos/244206/pexels-photo-244206.jpeg?auto=compress&w=600",
-  },
-  {
-    id: "city-2020",
-    brand: "Honda",
-    avgAnnualServiceCost: 16000,
-    majorServiceInterval: 10000,
-    tireLife: 50000,
-    title: "2020 Honda City VX",
-    km: "25,000",
-    fuel: "Petrol",
-    transmission: "Manual",
-    owner: "1st owner",
-    emi: "₹22,000/m",
-    price: "₹14.80 lakh",
-    location: "Delhi",
-    image: "https://images.pexels.com/photos/1280560/pexels-photo-1280560.jpeg?auto=compress&w=600",
-  },
-  {
-    id: "innova-2016",
-    brand: "Toyota",
-    avgAnnualServiceCost: 20000,
-    majorServiceInterval: 10000,
-    tireLife: 50000,
-    title: "2016 Toyota Innova Crysta VX",
-    km: "120,000",
-    fuel: "Diesel",
-    transmission: "Manual",
-    owner: "2nd owner",
-    emi: "₹25,000/m",
-    price: "₹18.50 lakh",
-    location: "Bangalore, Karnataka",
-    image: "https://images.pexels.com/photos/170811/pexels-photo-170811.jpeg?auto=compress&w=600",
-  },
-  {
-    id: "nexon-2019",
-    brand: "Tata",
-    avgAnnualServiceCost: 14000,
-    majorServiceInterval: 10000,
-    tireLife: 55000,
-    title: "2019 Tata Nexon XM",
-    km: "52,300",
-    fuel: "Petrol",
-    transmission: "Manual",
-    owner: "1st owner",
-    emi: "₹13,800/m",
-    price: "₹8.90 lakh",
-    location: "Mumbai, Maharashtra",
-    image: "https://images.pexels.com/photos/1280560/pexels-photo-1280560.jpeg?auto=compress&w=600",
-  },
-];
+};

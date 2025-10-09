@@ -2,6 +2,7 @@ import { Input } from "@/components/ui/input";
 import { useAuth } from "@/context/AuthContext";
 import { createBooking } from "@/lib/Bookingapi";
 import { getcarByid } from "@/lib/Carapi";
+import MaintenanceDashboard from "@/components/MaintenanceDashboard";
 import {
   AlertCircle,
   Calendar,
@@ -65,6 +66,7 @@ const index = () => {
   const [carDetails, setcarDetails] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [step, setstep] = useState(1);
+  const [showMaintenance, setShowMaintenance] = useState(false);
   useEffect(() => {
     if (!id) return;
     async function fetchCar() {
@@ -152,6 +154,21 @@ const index = () => {
     <div className="min-h-screen bg-gray-50 text-black">
       <main className="container mx-auto px-4 py-8">
         <div className="max-w-7xl mx-auto">
+          {showMaintenance && (
+            <div className="mb-8">
+              <MaintenanceDashboard
+                carId={id as string}
+                carData={{
+                  title: carDetails.title,
+                  brand: carDetails.title.split(' ')[1] || 'Unknown', // Extract brand from title
+                  model: carDetails.title.split(' ')[2] || 'Unknown', // Extract model from title
+                  year: carDetails.specs.year,
+                  mileage: parseInt(carDetails.specs.km.replace(/,/g, '')) || 0,
+                  condition: 'Good' // Default condition
+                }}
+              />
+            </div>
+          )}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             {/* Car Details Summary */}
             <div className="bg-white rounded-lg shadow-md p-6">
@@ -220,13 +237,27 @@ const index = () => {
                 </ul>
               </div>
               {/* Features */}
-              <div className="bg-gray-100 p-4 rounded-lg">
+              <div className="bg-gray-100 p-4 rounded-lg mb-4">
                 <h3 className="font-semibold text-gray-800 mb-2">Features</h3>
                 <ul className="list-disc list-inside space-y-1 text-gray-700">
                   {carDetails.features.map((feature: any, index: any) => (
                     <li key={index}>{feature}</li>
                   ))}
                 </ul>
+              </div>
+
+              {/* Maintenance Cost Button */}
+              <div className="bg-blue-50 p-4 rounded-lg">
+                <h3 className="font-semibold text-blue-800 mb-2">Maintenance Cost Estimator</h3>
+                <p className="text-sm text-blue-700 mb-3">
+                  Get detailed maintenance cost estimates and service predictions for this vehicle.
+                </p>
+                <button
+                  onClick={() => setShowMaintenance(!showMaintenance)}
+                  className="w-full py-2 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                >
+                  {showMaintenance ? 'Hide Maintenance Details' : 'View Maintenance Costs'}
+                </button>
               </div>
             </div>
             {/* booking form  */}

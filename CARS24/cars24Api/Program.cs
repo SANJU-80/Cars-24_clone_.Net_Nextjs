@@ -8,10 +8,14 @@ builder.Services.AddOpenApi();
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 string connectionstring = builder.Configuration.GetConnectionString("Cars24DB");
+var client = new MongoClient(connectionstring);
+var database = client.GetDatabase("cars24");
+
 builder.Services.AddSingleton<UserService>();
 builder.Services.AddSingleton<CarService>();
 builder.Services.AddSingleton<BookingService>();
 builder.Services.AddSingleton<AppointmentService>();
+builder.Services.AddSingleton<MaintenanceService>(provider => new MaintenanceService(database));
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>

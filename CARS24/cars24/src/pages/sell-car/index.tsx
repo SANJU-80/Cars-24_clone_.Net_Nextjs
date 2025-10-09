@@ -73,11 +73,55 @@ const index = () => {
       router.push("/login");
       return;
     }
+
+    // Validate required fields
+    if (!carDetails.title || !carDetails.price || !carDetails.location) {
+      toast.error("Please fill in all required fields");
+      return;
+    }
+
+    if (carDetails.images.length === 0) {
+      toast.error("Please upload at least one car image");
+      return;
+    }
+
     try {
-      const car = await createCar(carDetails);
-      const newId = car?.id || car?.Id || car?._id;
+      // Add a unique ID to the car details
+      const carWithId = {
+        ...carDetails,
+        id: carDetails.id || uuidv4()
+      };
+
+      // Save to localStorage for immediate display
+      const carForDisplay = {
+        id: carWithId.id,
+        brand: carWithId.title.split(' ')[0] || 'Unknown', // Extract brand from title
+        avgAnnualServiceCost: 15000, // Default value
+        majorServiceInterval: 10000, // Default value
+        tireLife: 45000, // Default value
+        title: carWithId.title,
+        km: carWithId.specs.km,
+        fuel: carWithId.specs.fuel,
+        transmission: carWithId.specs.transmission,
+        owner: carWithId.specs.owner,
+        emi: carWithId.emi,
+        price: carWithId.price,
+        location: carWithId.location,
+        image: Array.isArray(carWithId.images) ? carWithId.images[0] || '' : carWithId.images || '', // Use first uploaded image
+      };
+      
+      console.log('Saving car to localStorage:', carForDisplay);
+      console.log('Car images:', carWithId.images);
+      console.log('First image:', carForDisplay.image);
+      
+      // saveUploadedCar(carForDisplay); // Function removed
+
+      const car = await createCar(carWithId);
+      console.log("Car created successfully:", car);
+      
+      const newId = car?.id || car?.Id || car?._id || carWithId.id;
       if (newId) {
-        toast.success("Car listed Successfully");
+        toast.success("Car listed successfully!");
         // Redirect to Buy-Car details page so the user can see the listing like in buy list
         router.push(`/buy-car/${newId}`);
       } else {
@@ -85,10 +129,25 @@ const index = () => {
         toast.success("Car listed. Redirecting to listings.");
         router.push(`/buy-car`);
       }
-    } catch (error) {
-      console.error(error);
-      toast.error("Failed to list car. Showing listings instead.");
-      router.push(`/buy-car`);
+    } catch (error: any) {
+      console.error("Car creation error:", error);
+      
+      // More specific error handling
+      if (error.message?.includes("401") || error.message?.includes("Unauthorized")) {
+        toast.error("Please login to continue");
+        router.push("/login");
+      } else if (error.message?.includes("400") || error.message?.includes("Bad Request")) {
+        toast.error("Please check your car details and try again");
+      } else if (error.message?.includes("500") || error.message?.includes("Internal Server Error")) {
+        toast.error("Server error. Please try again later");
+      } else if (error.message?.includes("Network error") || error.message?.includes("timeout")) {
+        toast.error("Network issue. Please check your internet connection and try again");
+      } else {
+        // For other errors, show a more helpful message
+        toast.error("Unable to connect to server. Please try again later.");
+      }
+      
+      // Don't redirect on error, let user fix the issue
     }
   };
   return (

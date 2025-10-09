@@ -21,32 +21,30 @@ import {
 } from "./ui/dropdown-menu";
 import { Button } from "./ui/button";
 import { useAuth } from "@/context/AuthContext";
+
+// Move arrays outside component to prevent hydration issues
+const navItems = [
+ 
+  { name: "Buy used car", href: "/buy-car" },
+  { name: "Sell car", href: "/sell-car" },
+  { name: "Car finance", href: "/finance" },
+  { name: "New cars", href: "/new-cars" },
+  { name: "Car services", href: "/services" },
+  { name: "Maintenance Estimator", href: "/maintenance-estimator" },
+];
+
+const menuItems = [
+  { label: "My Appointments", icon: Calendar, link: "/appointments" },
+  { label: "My Bookings", icon: Package, link: "/bookings" },
+  { label: "My Orders", icon: FileText, link: "/orders" },
+  { label: "Resources", icon: FileText, link: "/resources" },
+  { label: "RC Transfer Status", icon: FileText, link: "/rc-transfer" },
+  { label: "Become Our Partner", icon: Users, link: "/partner" },
+  { label: "FAQ", icon: HelpCircle, link: "/faq" },
+];
+
 const Header = () => {
-  const navItems = [
-    { name: "Buy used car", href: "/buy-car" },
-    { name: "Sell car", href: "/sell-car" },
-    { name: "Car finance", href: "/finance" },
-    { name: "New cars", href: "/new-cars" },
-    { name: "Car services", href: "/services" },
-  ];
-  const menuItems = [
-    { label: "My Appointments", icon: Calendar, link: "/appointments" },
-    { label: "My Bookings", icon: Package, link: "/bookings" },
-    { label: "My Orders", icon: FileText, link: "/orders" },
-    { label: "Resources", icon: FileText, link: "/resources" },
-    { label: "RC Transfer Status", icon: FileText, link: "/rc-transfer" },
-    { label: "Become Our Partner", icon: Users, link: "/partner" },
-    { label: "FAQ", icon: HelpCircle, link: "/faq" },
-  ];
-  // const user = {
-  //   id: "1",
-  //   avatar_url: "https://github.com/shadcn.png",
-  //   email: "giris@gmail.com",
-  //   full_name: "John Doe",
-  //   phone: "+1234567890",
-  //   created_at: new Date().toISOString(),
-  // };
-  const { user, signOut } = useAuth();
+  const { user, signOut, isClient } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   return (
     <header className="bg-white shadow-sm sticky top-0 z-50">
@@ -55,7 +53,7 @@ const Header = () => {
         aria-label="Global"
       >
         <div className="flex lg:flex-1">
-          <Link href="/" className="-m-1.5 p-1.5">
+          <Link href="/" className="-m-1.5 p-1.5" prefetch={false}>
             <span className="sr-only">Cars24</span>
             <div className="flex items-center">
               <span className="bg-blue-600 text-white font-bold py-1 px-2 rounded-md text-lg">
@@ -82,6 +80,7 @@ const Header = () => {
               <Link
                 href={item.href}
                 className="flex items-center text-sm font-medium text-gray-900 hover:text-blue-600"
+                prefetch={false}
               >
                 {item.name}
               </Link>
@@ -103,7 +102,7 @@ const Header = () => {
                 variant="ghost"
                 className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-gray-700 hover:text-orange-500"
               >
-                {user ? (
+                {isClient && user ? (
                   <>
                     <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden">
                       {user?.fullName ? (
@@ -125,12 +124,13 @@ const Header = () => {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-72">
-              {user ? (
+              {isClient && user ? (
                 <>
                   <DropdownMenuItem asChild>
                     <Link
                       href="/profile"
                       className="w-full flex items-center gap-2"
+                      prefetch={false}
                     >
                       Profile Settings
                     </Link>
@@ -163,7 +163,7 @@ const Header = () => {
               {/* Common menu items */}
               {menuItems.map(({ label, icon: Icon, link }) => (
                 <DropdownMenuItem asChild key={label}>
-                  <Link href={link} className="flex items-center gap-3 w-full">
+                  <Link href={link} className="flex items-center gap-3 w-full" prefetch={false}>
                     <Icon className="h-4 w-4 text-muted-foreground" />
                     {label}
                   </Link>
