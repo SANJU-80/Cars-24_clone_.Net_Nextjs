@@ -5,8 +5,16 @@ import { Slider } from "@/components/ui/slider";
 import { getcarSummaries } from "@/lib/Carapi";
 import { ChevronDown, Heart, Search, Sliders } from "lucide-react";
 import Link from "next/link";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
+// ImageDebugger removed - no longer needed
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
+// No hardcoded cars - all data comes from API
 // const cars = [
 //   {
 //     id: "fronx-2023",
@@ -130,10 +138,18 @@ function LoaderCard() {
     </div>
   );
 }
+// Helper function to format numbers consistently without locale dependencies
+const formatPrice = (num: number): string => {
+  return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+};
+
 const index = () => {
-  const [priceRange, setPriceRange] = useState([0, 1000000]);
+  const [priceRange, setPriceRange] = useState([0, 10000000]);
   const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
   const [cars, setCars] = useState<Car[] | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortBy, setSortBy] = useState("price-low-to-high");
+
   useEffect(() => {
     const fetchCars = async () => {
       const car = await getcarSummaries();
@@ -141,8 +157,58 @@ const index = () => {
     };
     fetchCars();
   }, []);
+
+
+
+  // Filter and sort cars based on current filters
+  const filteredAndSortedCars = useMemo(() => {
+    if (!cars) return null;
+
+    let filteredCars = cars.filter((car) => {
+      // Price range filter
+      const carPrice = parseInt(car.price.replace(/[^\d]/g, "")) || 0;
+      const inPriceRange = carPrice >= priceRange[0] && carPrice <= priceRange[1];
+
+      // Brand filter
+      const brandMatch = selectedBrands.length === 0 || 
+        selectedBrands.some(brand => car.title.toLowerCase().includes(brand.toLowerCase()));
+
+      // Search filter
+      const searchMatch = searchQuery === "" || 
+        car.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        car.location.toLowerCase().includes(searchQuery.toLowerCase());
+
+      return inPriceRange && brandMatch && searchMatch;
+    });
+
+    // Sort cars
+    filteredCars.sort((a, b) => {
+      const priceA = parseInt(a.price.replace(/[^\d]/g, "")) || 0;
+      const priceB = parseInt(b.price.replace(/[^\d]/g, "")) || 0;
+
+      switch (sortBy) {
+        case "price-low-to-high":
+          return priceA - priceB;
+        case "price-high-to-low":
+          return priceB - priceA;
+        case "km-low-to-high":
+          const kmA = parseInt(a.km.replace(/[^\d]/g, "")) || 0;
+          const kmB = parseInt(b.km.replace(/[^\d]/g, "")) || 0;
+          return kmA - kmB;
+        case "km-high-to-low":
+          const kmA2 = parseInt(a.km.replace(/[^\d]/g, "")) || 0;
+          const kmB2 = parseInt(b.km.replace(/[^\d]/g, "")) || 0;
+          return kmB2 - kmA2;
+        default:
+          return 0;
+      }
+    });
+
+    return filteredCars;
+  }, [cars, priceRange, selectedBrands, searchQuery, sortBy]);
   return (
     <div className="bg-gray-100">
+      {/* ImageDebugger removed - no longer needed */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 bg-white text-black">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           {/* filter */}
@@ -155,16 +221,16 @@ const index = () => {
                     Price Range
                   </label>
                   <Slider
-                    defaultValue={[0, 1000000]}
-                    max={1000000}
-                    step={10000}
+                    defaultValue={[0, 10000000]}
+                    max={10000000}
+                    step={100000}
                     value={priceRange}
                     onValueChange={setPriceRange}
                     className="mt-2"
                   />
-                  <div className="flex justify-between mt-2 text-sm text-gray-600">
-                    <span>₹{priceRange[0]}</span>
-                    <span>₹{priceRange[1]}</span>
+                  <div className="flex justify-between mt-2 text-sm text-gray-900 font-medium">
+                    <span>₹{formatPrice(priceRange[0])}</span>
+                    <span>₹{formatPrice(priceRange[1])}</span>
                   </div>
                 </div>
                 <div>
@@ -172,7 +238,18 @@ const index = () => {
                     Brand
                   </label>
                   <div className="space-y-2">
-                    {["Maruti", "Hyundai", "Honda", "Tata"].map((brand) => (
+                    {[
+                      "Maruti", 
+                      "Hyundai", 
+                      "Honda", 
+                      "Tata", 
+                      "Toyota", 
+                      "Mahindra", 
+                      "Ford", 
+                      "Volkswagen", 
+                      "Skoda", 
+                      "Kia"
+                    ].map((brand) => (
                       <label key={brand} className="flex items-center">
                         <input
                           type="checkbox"
@@ -188,7 +265,7 @@ const index = () => {
                             }
                           }}
                         />
-                        <span className="ml-2 text-sm">{brand}</span>
+                        <span className="ml-2 text-sm text-gray-900 font-medium">{brand}</span>
                       </label>
                     ))}
                   </div>
@@ -199,83 +276,130 @@ const index = () => {
           {/* cars grid */}
           <div className="md:col-span-3">
             <div className="flex justify-between items-center mb-6">
-              <h1 className="text-2xl font-bold">Used Cars in Delhi NCR</h1>
+              <div>
+                <h1 className="text-2xl font-bold">Used Cars in Delhi NCR</h1>
+                {filteredAndSortedCars && (
+                  <p className="text-sm text-gray-600 mt-1">
+                    {filteredAndSortedCars.length} cars found
+                  </p>
+                )}
+              </div>
               <div className="flex items-center space-x-4">
                 <div className="relative">
                   <Input
                     type="text"
                     placeholder="Search cars..."
                     className="pl-10"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
                   />
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                 </div>
-                <Button
-                  variant="outline"
-                  className="flex items-center  text-white"
-                >
-                  <Sliders className="h-4 w-4 mr-2" />
-                  Sort
-                  <ChevronDown className="h-4 w-4 ml-2" />
-                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="flex items-center text-gray-700 bg-white border-gray-300"
+                    >
+                      <Sliders className="h-4 w-4 mr-2" />
+                      Sort
+                      <ChevronDown className="h-4 w-4 ml-2" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56">
+                    <DropdownMenuItem onClick={() => setSortBy("price-low-to-high")}>
+                      Price: Low to High
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setSortBy("price-high-to-low")}>
+                      Price: High to Low
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setSortBy("km-low-to-high")}>
+                      Mileage: Low to High
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setSortBy("km-high-to-low")}>
+                      Mileage: High to Low
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {cars === null
+              {filteredAndSortedCars === null
                 ? Array.from({ length: 6 }).map((_N_E_STYLE_LOAD, index) => (
                     <LoaderCard key={index} />
                   ))
-                : cars.map((car) => (
-                    <Link
+                : filteredAndSortedCars.length === 0
+                ? (
+                    <div className="col-span-full text-center py-12">
+                      <p className="text-gray-500 text-lg">No cars found matching your criteria.</p>
+                      <p className="text-gray-400 text-sm mt-2">Try adjusting your filters or search terms.</p>
+                    </div>
+                  )
+                : filteredAndSortedCars.map((car) => (
+                    <div
                       key={car.id}
-                      href={`/buy-car/${car.id}`}
                       className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow"
                     >
-                      <div className="relative h-48">
-                        <img
-                          src={car.image}
-                          alt={car.title}
-                          className="w-full h-full object-cover"
-                        />
-                        <button className="absolute top-2 right-2 p-1.5 bg-white/80 rounded-full hover:bg-white">
-                          <Heart className="h-4 w-4 text-gray-500 hover:text-red-500" />
-                        </button>
-                      </div>
-                      <div className="p-4">
-                        <h3 className="font-semibold text-lg mb-2">
-                          {car.title}
-                        </h3>
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="text-sm text-gray-600">
-                            {car.km} km
-                          </div>
-                          <div className="text-sm text-gray-600">
-                            {car.transmission}
-                          </div>
-                          <div className="text-sm text-gray-600">
-                            {car.fuel}
-                          </div>
-                          <div className="text-sm text-gray-600">
-                            {car.owner}
-                          </div>
+                      <Link href={`/buy-car/${car.id}`}>
+                        <div className="relative">
+                          <img
+                            src={car.image}
+                            alt={car.title}
+                            className="w-full h-auto"
+                          />
+                          <button className="absolute top-2 right-2 p-1.5 bg-white/80 rounded-full hover:bg-white">
+                            <Heart className="h-4 w-4 text-gray-500 hover:text-red-500" />
+                          </button>
                         </div>
-                        <div className="flex items-center justify-between">
-                          <div>
+                        <div className="p-4">
+                          <h3 className="font-semibold text-lg mb-2">
+                            {car.title}
+                          </h3>
+                          <div className="flex items-center justify-between mb-2">
                             <div className="text-sm text-gray-600">
-                              EMI from
+                              {car.km} km
                             </div>
-                            <div className="font-semibold">{car.emi}</div>
+                            <div className="text-sm text-gray-600">
+                              {car.transmission}
+                            </div>
+                            <div className="text-sm text-gray-600">
+                              {car.fuel}
+                            </div>
+                            <div className="text-sm text-gray-600">
+                              {car.owner}
+                            </div>
                           </div>
-                          <div className="text-right">
-                            <div className="text-sm text-gray-600">Price</div>
-                            <div className="font-semibold">{car.price}</div>
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <div className="text-sm text-gray-600">
+                                EMI from
+                              </div>
+                              <div className="font-semibold">{car.emi}</div>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-sm text-gray-600">Price</div>
+                              <div className="font-semibold">{car.price}</div>
+                            </div>
+                          </div>
+                          <div className="mt-2 text-xs text-gray-500">
+                            {car.location}
                           </div>
                         </div>
-                        <div className="mt-2 text-xs text-gray-500">
-                          {car.location}
-                        </div>
+                      </Link>
+                      <div className="px-4 pb-4">
+                        <Button 
+                          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            // Handle buy now action
+                            window.location.href = `/buy-car/${car.id}`;
+                          }}
+                        >
+                          Buy Now
+                        </Button>
                       </div>
-                    </Link>
+                    </div>
                   ))}
             </div>
           </div>

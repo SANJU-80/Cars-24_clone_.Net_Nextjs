@@ -16,6 +16,8 @@ builder.Services.AddSingleton<CarService>();
 builder.Services.AddSingleton<BookingService>();
 builder.Services.AddSingleton<AppointmentService>();
 builder.Services.AddSingleton<MaintenanceService>(provider => new MaintenanceService(database));
+builder.Services.AddSingleton<NotificationService>(provider => new NotificationService(database, builder.Configuration));
+builder.Services.AddSingleton<PricingService>(provider => new PricingService(database));
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>

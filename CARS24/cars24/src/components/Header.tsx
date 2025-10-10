@@ -21,6 +21,7 @@ import {
 } from "./ui/dropdown-menu";
 import { Button } from "./ui/button";
 import { useAuth } from "@/context/AuthContext";
+import NotificationBell from "./NotificationBell";
 
 // Move arrays outside component to prevent hydration issues
 const navItems = [
@@ -31,6 +32,7 @@ const navItems = [
   { name: "New cars", href: "/new-cars" },
   { name: "Car services", href: "/services" },
   { name: "Maintenance Estimator", href: "/maintenance-estimator" },
+  { name: "Market Pricing", href: "/pricing" },
 ];
 
 const menuItems = [
@@ -96,6 +98,7 @@ const Header = () => {
             <Heart className="mr-1 h-4 w-4" />
             <span>Wishlist</span>
           </Button>
+          {isClient && user && <NotificationBell />}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
@@ -133,6 +136,15 @@ const Header = () => {
                       prefetch={false}
                     >
                       Profile Settings
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link
+                      href="/notifications"
+                      className="w-full flex items-center gap-2"
+                      prefetch={false}
+                    >
+                      Notifications
                     </Link>
                   </DropdownMenuItem>
 

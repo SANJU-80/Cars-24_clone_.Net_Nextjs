@@ -6,6 +6,8 @@ import { useRouter } from "next/router";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
 import { createCar } from "@/lib/Carapi";
+import { checkLocalStorageQuota, limitImageForStorage } from "@/lib/storageUtils";
+
 type CarDetails = {
   id: string;
   title: string;
@@ -110,23 +112,79 @@ const index = () => {
         image: Array.isArray(carWithId.images) ? carWithId.images[0] || '' : carWithId.images || '', // Use first uploaded image
       };
       
-      console.log('Saving car to localStorage:', carForDisplay);
-      console.log('Car images:', carWithId.images);
-      console.log('First image:', carForDisplay.image);
+      console.log('🚗 SELL CAR DEBUG:');
+      console.log('Car images array:', carWithId.images);
+      console.log('First image (base64):', carWithId.images[0]?.substring(0, 50) + '...');
+      console.log('Car for display:', carForDisplay);
+      console.log('First image for display:', carForDisplay.image?.substring(0, 50) + '...');
       
-      // saveUploadedCar(carForDisplay); // Function removed
+      // Save to localStorage as backup with quota management
+      try {
+        // Check if localStorage has space before attempting to save
+        if (!checkLocalStorageQuota()) {
+          console.warn('localStorage quota exceeded, skipping backup save');
+          toast.warning('Browser storage full - car will only be saved to server');
+        } else {
+          const existingCars = JSON.parse(localStorage.getItem('uploadedCars') || '[]');
+          
+          // Limit localStorage to 5 cars max to prevent quota exceeded error
+          const MAX_LOCAL_CARS = 5;
+          if (existingCars.length >= MAX_LOCAL_CARS) {
+            // Remove oldest cars to make space
+            existingCars.splice(0, existingCars.length - MAX_LOCAL_CARS + 1);
+          }
+          
+          // Limit image sizes before storing to prevent quota exceeded error
+          const compressedCar = {
+            ...carForDisplay,
+            image: carForDisplay.image ? limitImageForStorage(carForDisplay.image) : carForDisplay.image,
+            images: carForDisplay.images ? carForDisplay.images.map(img => limitImageForStorage(img)) : carForDisplay.images
+          };
+          
+          existingCars.push(compressedCar);
+          localStorage.setItem('uploadedCars', JSON.stringify(existingCars));
+          console.log('🚗 Saved to localStorage as backup');
+        }
+      } catch (storageError: any) {
+        console.warn('Failed to save to localStorage:', storageError.message);
+        
+        // If quota exceeded, try to clear old data and retry once
+        if (storageError.name === 'QuotaExceededError') {
+          try {
+            console.log('Clearing localStorage and retrying...');
+            localStorage.removeItem('uploadedCars');
+            const compressedCar = {
+              ...carForDisplay,
+              image: carForDisplay.image ? limitImageForStorage(carForDisplay.image) : carForDisplay.image,
+              images: carForDisplay.images ? carForDisplay.images.map(img => limitImageForStorage(img)) : carForDisplay.images
+            };
+            localStorage.setItem('uploadedCars', JSON.stringify([compressedCar]));
+            console.log('🚗 Saved to localStorage after clearing old data');
+            toast.info('Cleared old data to make space for new car');
+          } catch (retryError) {
+            console.warn('Failed to save even after clearing localStorage:', retryError);
+            toast.warning('Could not save backup - car will only be saved to server');
+          }
+        }
+      }
 
-      const car = await createCar(carWithId);
-      console.log("Car created successfully:", car);
-      
-      const newId = car?.id || car?.Id || car?._id || carWithId.id;
-      if (newId) {
-        toast.success("Car listed successfully!");
-        // Redirect to Buy-Car details page so the user can see the listing like in buy list
-        router.push(`/buy-car/${newId}`);
-      } else {
-        // Fallback: go to listing page even if backend didn't return id
-        toast.success("Car listed. Redirecting to listings.");
+      try {
+        const car = await createCar(carWithId);
+        console.log("Car created successfully:", car);
+        
+        const newId = car?.id || car?.Id || car?._id || carWithId.id;
+        if (newId) {
+          toast.success("Car listed successfully!");
+          // Redirect to Buy-Car details page so the user can see the listing like in buy list
+          router.push(`/buy-car/${newId}`);
+        } else {
+          // Fallback: go to listing page even if backend didn't return id
+          toast.success("Car listed. Redirecting to listings.");
+          router.push(`/buy-car`);
+        }
+      } catch (backendError: any) {
+        console.warn("Backend not available, using localStorage:", backendError.message);
+        toast.success("Car saved locally! (Backend not available)");
         router.push(`/buy-car`);
       }
     } catch (error: any) {

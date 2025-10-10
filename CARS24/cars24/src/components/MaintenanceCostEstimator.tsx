@@ -136,12 +136,12 @@ const MaintenanceCostEstimator: React.FC<MaintenanceCostEstimatorProps> = ({
                 name="brand"
                 value={formData.brand}
                 onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-gray-900"
                 required
               >
-                <option value="">Select Brand</option>
+                <option value="" className="text-gray-500">Select Brand</option>
                 {brands.map(brand => (
-                  <option key={brand} value={brand}>{brand}</option>
+                  <option key={brand} value={brand} className="text-gray-900 font-medium">{brand}</option>
                 ))}
               </select>
             </div>
@@ -155,7 +155,7 @@ const MaintenanceCostEstimator: React.FC<MaintenanceCostEstimatorProps> = ({
                 name="model"
                 value={formData.model}
                 onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 font-bold text-gray-900"
                 placeholder="e.g., Swift, i20, City"
                 required
               />
@@ -172,7 +172,7 @@ const MaintenanceCostEstimator: React.FC<MaintenanceCostEstimatorProps> = ({
                 onChange={handleInputChange}
                 min="1990"
                 max={new Date().getFullYear()}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-gray-900 font-medium"
                 required
               />
             </div>
@@ -187,7 +187,7 @@ const MaintenanceCostEstimator: React.FC<MaintenanceCostEstimatorProps> = ({
                 value={formData.mileage}
                 onChange={handleInputChange}
                 min="0"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-gray-900 font-medium"
                 required
               />
             </div>
@@ -200,10 +200,10 @@ const MaintenanceCostEstimator: React.FC<MaintenanceCostEstimatorProps> = ({
                 name="condition"
                 value={formData.condition}
                 onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-gray-900"
               >
                 {conditions.map(condition => (
-                  <option key={condition} value={condition}>{condition}</option>
+                  <option key={condition} value={condition} className="text-gray-900 font-medium">{condition}</option>
                 ))}
               </select>
             </div>

@@ -3,6 +3,7 @@ import { useAuth } from "@/context/AuthContext";
 import { createBooking } from "@/lib/Bookingapi";
 import { getcarByid } from "@/lib/Carapi";
 import MaintenanceDashboard from "@/components/MaintenanceDashboard";
+import PricingEngine from "@/components/PricingEngine";
 import {
   AlertCircle,
   Calendar,
@@ -15,40 +16,7 @@ import {
 import { useRouter } from "next/router";
 import React, { useEffect, useState } from "react";
 import { toast } from "sonner";
-const carDetails = {
-  id: "fronx-2023",
-  title: "2023 Maruti FRONX DELTA PLUS 1.2L AGS",
-  images: [
-    "https://images.pexels.com/photos/170811/pexels-photo-170811.jpeg",
-    "https://images.pexels.com/photos/116675/pexels-photo-116675.jpeg",
-    "https://images.pexels.com/photos/3729464/pexels-photo-3729464.jpeg",
-  ],
-  price: "₹7.80 lakh",
-  emi: "₹15,245/month",
-  location: "Metro Walk, Rohini, New Delhi",
-  specs: {
-    year: 2023,
-    km: "10,048",
-    fuel: "Petrol",
-    transmission: "Automatic",
-    owner: "1st owner",
-    insurance: "Valid till 2024",
-  },
-  features: [
-    "Power Steering",
-    "Power Windows",
-    "Air Conditioning",
-    "Driver Airbag",
-    "Passenger Airbag",
-    "Alloy Wheels",
-  ],
-  highlights: [
-    "Single owner vehicle",
-    "All original documents",
-    "Non-accidental",
-    "Fully maintained",
-  ],
-};
+// No hardcoded car data - all data comes from API
 const index = () => {
   const [formData, setformData] = useState({
     name: "",
@@ -67,6 +35,7 @@ const index = () => {
   const [loading, setLoading] = useState(true);
   const [step, setstep] = useState(1);
   const [showMaintenance, setShowMaintenance] = useState(false);
+  const [showPricing, setShowPricing] = useState(false);
   useEffect(() => {
     if (!id) return;
     async function fetchCar() {
@@ -81,6 +50,7 @@ const index = () => {
     }
     fetchCar();
   }, [id]);
+
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
@@ -162,10 +132,27 @@ const index = () => {
                   title: carDetails.title,
                   brand: carDetails.title.split(' ')[1] || 'Unknown', // Extract brand from title
                   model: carDetails.title.split(' ')[2] || 'Unknown', // Extract model from title
-                  year: carDetails.specs.year,
-                  mileage: parseInt(carDetails.specs.km.replace(/,/g, '')) || 0,
+                  year: carDetails.specs?.year || new Date().getFullYear(),
+                  mileage: parseInt((carDetails.specs?.km || '0').replace(/,/g, '')) || 0,
                   condition: 'Good' // Default condition
                 }}
+              />
+            </div>
+          )}
+          
+          {showPricing && carDetails && (
+            <div className="mb-8">
+              <PricingEngine
+                carId={id as string}
+                basePrice={parseFloat((carDetails.price || '0').replace(/[₹,]/g, '')) * 100000} // Convert lakh to actual price
+                brand={carDetails.title.split(' ')[1] || 'Unknown'}
+                model={carDetails.title.split(' ')[2] || 'Unknown'}
+                vehicleType="Hatchback" // Default, should be extracted from car data
+                year={carDetails.specs?.year || new Date().getFullYear()}
+                mileage={parseInt((carDetails.specs?.km || '0').replace(/,/g, '')) || 0}
+                condition="Good" // Default condition
+                fuelType={carDetails.specs?.fuel || 'Petrol'}
+                transmission={carDetails.specs?.transmission || 'Manual'}
               />
             </div>
           )}
@@ -173,11 +160,11 @@ const index = () => {
             {/* Car Details Summary */}
             <div className="bg-white rounded-lg shadow-md p-6">
               {/* Car Image */}
-              <div className="aspect-w-16 aspect-h-9 mb-4">
+              <div className="mb-4">
                 <img
-                  src={carDetails.images[0]}
+                  src={carDetails.images?.[0] || carDetails.image || "https://images.pexels.com/photos/170811/pexels-photo-170811.jpeg"}
                   alt={carDetails.title}
-                  className="w-full h-64 object-cover rounded-lg"
+                  className="w-full h-auto rounded-lg"
                 />
               </div>
 
@@ -195,7 +182,7 @@ const index = () => {
                 <div className="text-right">
                   <p className="text-gray-600">{carDetails.location}</p>
                   <p className="text-sm text-gray-500">
-                    {carDetails.specs.km} driven
+                    {carDetails.specs?.km || 'N/A'} driven
                   </p>
                 </div>
               </div>
@@ -203,23 +190,23 @@ const index = () => {
               <div className="grid grid-cols-2 gap-4 mb-6">
                 <div className="bg-gray-50 p-3 rounded-lg">
                   <p className="text-gray-600">Year</p>
-                  <p className="font-medium">{carDetails.specs.year}</p>
+                  <p className="font-medium">{carDetails.specs?.year || 'N/A'}</p>
                 </div>
                 <div className="bg-gray-50 p-3 rounded-lg">
                   <p className="text-gray-600">Fuel Type</p>
-                  <p className="font-medium">{carDetails.specs.fuel}</p>
+                  <p className="font-medium">{carDetails.specs?.fuel || 'N/A'}</p>
                 </div>
                 <div className="bg-gray-50 p-3 rounded-lg">
                   <p className="text-gray-600">Transmission</p>
-                  <p className="font-medium">{carDetails.specs.transmission}</p>
+                  <p className="font-medium">{carDetails.specs?.transmission || 'N/A'}</p>
                 </div>
                 <div className="bg-gray-50 p-3 rounded-lg">
                   <p className="text-gray-600">Owner</p>
-                  <p className="font-medium">{carDetails.specs.owner}</p>
+                  <p className="font-medium">{carDetails.specs?.owner || 'N/A'}</p>
                 </div>
                 <div className="bg-gray-50 p-3 rounded-lg">
                   <p className="text-gray-600">Insurance</p>
-                  <p className="font-medium">{carDetails.specs.insurance}</p>
+                  <p className="font-medium">{carDetails.specs?.insurance || 'N/A'}</p>
                 </div>
               </div>
               {/* Highlights */}
@@ -228,7 +215,7 @@ const index = () => {
                   Car Highlights
                 </h3>
                 <ul className="space-y-1">
-                  {carDetails.highlights.map((highlight: any, index: any) => (
+                  {(carDetails.highlights || []).map((highlight: any, index: any) => (
                     <li key={index} className="text-blue-700 flex items-center">
                       <div className="w-2 h-2 bg-blue-700 rounded-full mr-2"></div>
                       {highlight}
@@ -240,14 +227,14 @@ const index = () => {
               <div className="bg-gray-100 p-4 rounded-lg mb-4">
                 <h3 className="font-semibold text-gray-800 mb-2">Features</h3>
                 <ul className="list-disc list-inside space-y-1 text-gray-700">
-                  {carDetails.features.map((feature: any, index: any) => (
+                  {(carDetails.features || []).map((feature: any, index: any) => (
                     <li key={index}>{feature}</li>
                   ))}
                 </ul>
               </div>
 
               {/* Maintenance Cost Button */}
-              <div className="bg-blue-50 p-4 rounded-lg">
+              <div className="bg-blue-50 p-4 rounded-lg mb-4">
                 <h3 className="font-semibold text-blue-800 mb-2">Maintenance Cost Estimator</h3>
                 <p className="text-sm text-blue-700 mb-3">
                   Get detailed maintenance cost estimates and service predictions for this vehicle.
@@ -257,6 +244,20 @@ const index = () => {
                   className="w-full py-2 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
                 >
                   {showMaintenance ? 'Hide Maintenance Details' : 'View Maintenance Costs'}
+                </button>
+              </div>
+
+              {/* Market Pricing Button */}
+              <div className="bg-green-50 p-4 rounded-lg">
+                <h3 className="font-semibold text-green-800 mb-2">Market Price Analysis</h3>
+                <p className="text-sm text-green-700 mb-3">
+                  Get AI-powered pricing recommendations based on market conditions, region, and season.
+                </p>
+                <button
+                  onClick={() => setShowPricing(!showPricing)}
+                  className="w-full py-2 px-4 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
+                >
+                  {showPricing ? 'Hide Price Analysis' : 'View Market Price'}
                 </button>
               </div>
             </div>
@@ -348,6 +349,7 @@ const index = () => {
                         name="preferredDate"
                         value={formData.preferredDate}
                         onChange={handleInputChange}
+                        min={new Date().toISOString().split("T")[0]}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
                         required
                       />

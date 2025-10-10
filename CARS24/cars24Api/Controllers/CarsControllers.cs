@@ -39,10 +39,12 @@ namespace Cars24Api.Controllers
                 car.Emi,
                 car.Price,
                 car.Location,
-                image = car.Images
+                image = car.Images?.FirstOrDefault() ?? "https://images.pexels.com/photos/170811/pexels-photo-170811.jpeg",
+                Images = car.Images // Include the full Images array for debugging
             });
             return Ok(result);
         }
+
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] Car car)
         {
@@ -50,6 +52,15 @@ namespace Cars24Api.Controllers
             {
                 return BadRequest("Car data is required");
             }
+            
+            // Debug logging
+            Console.WriteLine($"🚗 BACKEND: Creating car '{car.Title}'");
+            Console.WriteLine($"🚗 BACKEND: Images count: {car.Images?.Count ?? 0}");
+            if (car.Images?.Count > 0)
+            {
+                Console.WriteLine($"🚗 BACKEND: First image: {car.Images[0]?.Substring(0, Math.Min(50, car.Images[0]?.Length ?? 0))}...");
+            }
+            
             await _carservice.CreateAsync(car);
             return CreatedAtAction(nameof(GetById), new { id = car.Id }, car);
         }

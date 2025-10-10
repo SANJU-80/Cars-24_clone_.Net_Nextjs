@@ -128,14 +128,25 @@ const ImagesAndSpecsForm: React.FC<ImagesAndSpecsFormProps> = ({
     (_, i) => new Date().getFullYear() - i
   );
   const fuelTypes = ["Petrol", "Diesel", "CNG", "Electric", "Hybrid", "LPG"];
-  const transmissions = ["Manual", "Automatic", "AMT", "CVT", "DCT"];
+  const transmissions = ["Manual", "Automatic", "AMT", "CVT", "DCT", "Manual&Automatic"];
   const ownerOptions = [
     "1st Owner",
     "2nd Owner",
     "3rd Owner",
     "4th Owner or more",
   ];
-  const insuranceOptions = ["Comprehensive", "Third Party", "Expired"];
+  const insuranceOptions = [
+    "Comprehensive", 
+    "Third Party", 
+    "Zero Depreciation",
+    "Bumper to Bumper",
+    "Personal Accident Cover",
+    "Engine Protection",
+    "Roadside Assistance",
+    "Valid",
+    "Expired",
+    "Not Available"
+  ];
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
