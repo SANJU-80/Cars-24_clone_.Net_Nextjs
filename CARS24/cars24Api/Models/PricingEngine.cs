@@ -2,7 +2,7 @@ using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 using System.ComponentModel.DataAnnotations;
 
-namespace Cars24Api.Models;
+namespace cars24Api.Models;
 
 public class PricingEngine
 {

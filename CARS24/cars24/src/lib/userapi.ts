@@ -1,183 +1,128 @@
-// API Configuration - can switch between local and remote
-const isDevelopment = process.env.NODE_ENV === 'development';
-const LOCAL_API_URL = "http://localhost:5092/api/UserAuth";
-const REMOTE_API_URL = "https://cars-24-clone-net-nextjs-vypo.onrender.com/api/UserAuth";
-
-// Helper function to try multiple API endpoints
-const tryApiEndpoints = async (endpoints: string[], requestOptions: RequestInit) => {
-  let lastError: Error | null = null;
-  
-  for (const endpoint of endpoints) {
-    try {
-      const response = await fetch(endpoint, requestOptions);
-      return { response, endpoint };
-    } catch (error) {
-      lastError = error as Error;
-      console.warn(`Failed to connect to ${endpoint}:`, error);
-      continue;
-    }
-  }
-  
-  throw lastError || new Error("All API endpoints failed");
-};
-
-// Determine which endpoints to try
-const getApiEndpoints = () => {
-  if (isDevelopment) {
-    return [LOCAL_API_URL, REMOTE_API_URL]; // Try local first, then remote
-  }
-  return [REMOTE_API_URL]; // Only try remote in production
-};
+const BASE_URL = "https://cars-24-clone-net-nextjs.onrender.com/api/UserAuth";
+const LOCAL_URL = "http://localhost:5092/api/UserAuth";
 
 export const signup = async (
   email: string,
   password: string,
   userData: { fullName: string; phone: string }
 ) => {
-  try {
-    const endpoints = getApiEndpoints();
-    const requestOptions = {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ email, password, ...userData }),
-    };
-    
-    const { response, endpoint } = await tryApiEndpoints(
-      endpoints.map(ep => `${ep}/signup`), 
-      requestOptions
-    );
-    
-    console.log(`Signup request successful using endpoint: ${endpoint}`);
-    
-    if (!response.ok) {
-      // Try to get error message from response
-      let errorMessage = "Failed to sign up";
-      try {
-        const errorData = await response.json();
-        errorMessage = errorData.message || errorMessage;
-      } catch (e) {
-        // If we can't parse the error response, use status-based messages
-        switch (response.status) {
-          case 400:
-            errorMessage = "User already exists or invalid data provided";
-            break;
-          case 404:
-            errorMessage = "Signup service not found. Please check if the server is running.";
-            break;
-          case 500:
-            errorMessage = "Server error. Please try again later.";
-            break;
-          default:
-            errorMessage = `Signup failed with status ${response.status}`;
-        }
+  // Convert to PascalCase for C# backend
+  const requestBody = {
+    Email: email,
+    Password: password,
+    FullName: userData.fullName,
+    Phone: userData.phone,
+  };
+  
+  // Try Render API first, fallback to localhost
+  let lastError: Error | null = null;
+  
+  for (const apiUrl of [BASE_URL, LOCAL_URL]) {
+    try {
+      const response = await fetch(`${apiUrl}/signup`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(requestBody),
+      });
+      
+      if (response.ok) {
+        return response.json();
       }
-      throw new Error(errorMessage);
+      
+      // If we got a response but it's not OK, parse the error
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || `Failed to sign up (${response.status})`);
+    } catch (error) {
+      // Check if it's a network/fetch error
+      if (error instanceof TypeError || (error instanceof Error && error.message.includes('fetch'))) {
+        lastError = new Error(
+          apiUrl === BASE_URL 
+            ? "Cannot reach Render API. Trying local backend..." 
+            : "Cannot connect to backend. Please make sure your .NET backend is running on http://localhost:5092"
+        );
+        // If this was the Render API, try localhost next
+        if (apiUrl === BASE_URL) {
+          continue;
+        }
+        // If localhost also failed, throw the error
+        throw lastError;
+      }
+      
+      // If it's a different error (like validation error), throw it immediately
+      if (error instanceof Error) {
+        throw error;
+      }
+      
+      lastError = error instanceof Error ? error : new Error("Unknown error occurred");
     }
-    
-    return response.json();
-  } catch (error) {
-    if (error instanceof TypeError && error.message.includes('fetch')) {
-      throw new Error("Network error: Unable to connect to any server. Please check your internet connection and ensure the backend is running.");
-    }
-    throw error;
   }
+  
+  // If we get here, both APIs failed
+  throw lastError || new Error("Cannot connect to server. Please make sure your backend is running.");
 };
 
 export const login = async (email: string, password: string) => {
-  try {
-    const endpoints = getApiEndpoints();
-    const requestOptions = {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ email, password }),
-    };
-    
-    const { response, endpoint } = await tryApiEndpoints(
-      endpoints.map(ep => `${ep}/login`), 
-      requestOptions
-    );
-    
-    console.log(`Login request successful using endpoint: ${endpoint}`);
-    
-    if (!response.ok) {
-      // Try to get error message from response
-      let errorMessage = "Failed to login";
-      try {
-        const errorData = await response.json();
-        errorMessage = errorData.message || errorMessage;
-      } catch (e) {
-        // If we can't parse the error response, use status-based messages
-        switch (response.status) {
-          case 401:
-            errorMessage = "Invalid email or password";
-            break;
-          case 404:
-            errorMessage = "Login service not found. Please check if the server is running.";
-            break;
-          case 500:
-            errorMessage = "Server error. Please try again later.";
-            break;
-          default:
-            errorMessage = `Login failed with status ${response.status}`;
-        }
+  // Convert to PascalCase for C# backend
+  const requestBody = {
+    Email: email,
+    Password: password,
+  };
+  
+  // Try Render API first, fallback to localhost
+  let lastError: Error | null = null;
+  
+  for (const apiUrl of [BASE_URL, LOCAL_URL]) {
+    try {
+      const response = await fetch(`${apiUrl}/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(requestBody),
+      });
+      
+      if (response.ok) {
+        return response.json();
       }
-      throw new Error(errorMessage);
+      
+      // If we got a response but it's not OK, parse the error
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || `Failed to login (${response.status})`);
+    } catch (error) {
+      // Check if it's a network/fetch error
+      if (error instanceof TypeError || (error instanceof Error && error.message.includes('fetch'))) {
+        lastError = new Error(
+          apiUrl === BASE_URL 
+            ? "Cannot reach Render API. Trying local backend..." 
+            : "Cannot connect to backend. Please make sure your .NET backend is running on http://localhost:5092"
+        );
+        // If this was the Render API, try localhost next
+        if (apiUrl === BASE_URL) {
+          continue;
+        }
+        // If localhost also failed, throw the error
+        throw lastError;
+      }
+      
+      // If it's a different error (like validation error), throw it immediately
+      if (error instanceof Error) {
+        throw error;
+      }
+      
+      lastError = error instanceof Error ? error : new Error("Unknown error occurred");
     }
-    
-    return response.json();
-  } catch (error) {
-    if (error instanceof TypeError && error.message.includes('fetch')) {
-      throw new Error("Network error: Unable to connect to any server. Please check your internet connection and ensure the backend is running.");
-    }
-    throw error;
   }
+  
+  // If we get here, both APIs failed
+  throw lastError || new Error("Cannot connect to server. Please make sure your backend is running.");
 };
 
 export const getUserById = async (userId: string) => {
-  try {
-    const endpoints = getApiEndpoints();
-    const requestOptions = {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-      },
-    };
-    
-    const { response, endpoint } = await tryApiEndpoints(
-      endpoints.map(ep => `${ep}/${userId}`), 
-      requestOptions
-    );
-    
-    console.log(`Get user request successful using endpoint: ${endpoint}`);
-    
-    if (!response.ok) {
-      let errorMessage = "Failed to fetch user";
-      try {
-        const errorData = await response.json();
-        errorMessage = errorData.message || errorMessage;
-      } catch (e) {
-        switch (response.status) {
-          case 404:
-            errorMessage = "User not found";
-            break;
-          case 500:
-            errorMessage = "Server error. Please try again later.";
-            break;
-          default:
-            errorMessage = `Failed to fetch user with status ${response.status}`;
-        }
-      }
-      throw new Error(errorMessage);
-    }
-    return response.json();
-  } catch (error) {
-    if (error instanceof TypeError && error.message.includes('fetch')) {
-      throw new Error("Network error: Unable to connect to any server. Please check your internet connection and ensure the backend is running.");
-    }
-    throw error;
+  const response = await fetch(`${BASE_URL}/${userId}`);
+  if (!response.ok) {
+    throw new Error("Failed to fetch user");
   }
+  return response.json();
 };

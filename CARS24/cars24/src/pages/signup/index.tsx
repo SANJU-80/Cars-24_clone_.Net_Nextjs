@@ -43,8 +43,9 @@ const index = () => {
       navigate.push("/");
     } catch (err) {
       console.error("Signup error:", err);
-      toast.error("Failed to create an account. Please try again.");
-      setError("Failed to create an account. Please try again.");
+      const errorMessage = err instanceof Error ? err.message : "Failed to create an account. Please try again.";
+      toast.error(errorMessage);
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }

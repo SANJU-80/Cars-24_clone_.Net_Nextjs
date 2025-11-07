@@ -9,7 +9,7 @@ import {
   User,
   X,
 } from "lucide-react";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 type CarDetails = {
   id: string;
   title: string;
@@ -43,13 +43,7 @@ const ImagesAndSpecsForm: React.FC<ImagesAndSpecsFormProps> = ({
 }) => {
   const [isValid, setIsValid] = useState(false);
   const [dragActive, setDragActive] = useState(false);
-  const [uploadError, setUploadError] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
-
-  const placeholderImages = [
-    "https://images.pexels.com/photos/112460/pexels-photo-112460.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1",
-    "https://images.pexels.com/photos/116675/pexels-photo-116675.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1",
-  ];
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const { specs } = carDetails;
@@ -65,45 +59,88 @@ const ImagesAndSpecsForm: React.FC<ImagesAndSpecsFormProps> = ({
     setIsValid(!!specsFilled && hasImages);
   }, [carDetails]);
 
-  const handleFiles = async (files: FileList) => {
-    setUploadError(null);
-    const allowedTypes = ["image/jpeg", "image/png"];
-    const maxFiles = 10 - carDetails.images.length;
-    const filesToProcess = Array.from(files).slice(0, Math.max(0, maxFiles));
+  // Convert file to base64 data URL
+  const fileToDataURL = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
 
-    if (filesToProcess.length === 0) {
-      setUploadError("You can upload up to 10 photos.");
+  // Validate file type
+  const isValidImageFile = (file: File): boolean => {
+    const validTypes = ['image/jpeg', 'image/jpg', 'image/png'];
+    return validTypes.includes(file.type);
+  };
+
+  // Handle file selection
+  const handleFileSelect = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+
+    const remainingSlots = 10 - carDetails.images.length;
+    if (remainingSlots <= 0) {
+      alert('Maximum 10 photos allowed');
       return;
     }
 
-    const readFileAsDataURL = (file: File) =>
-      new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
+    const filesArray = Array.from(files).slice(0, remainingSlots);
+    const validFiles: File[] = [];
+    const invalidFiles: string[] = [];
 
-    const newImages: string[] = [];
-    for (const file of filesToProcess) {
-      if (!allowedTypes.includes(file.type)) {
-        setUploadError("Only JPEG or PNG images are allowed.");
-        continue;
+    // Validate files
+    filesArray.forEach((file) => {
+      if (isValidImageFile(file)) {
+        validFiles.push(file);
+      } else {
+        invalidFiles.push(file.name);
       }
-      try {
-        const dataUrl = await readFileAsDataURL(file);
-        newImages.push(dataUrl);
-      } catch (_) {
-        setUploadError("Failed to read one of the files.");
-      }
+    });
+
+    if (invalidFiles.length > 0) {
+      alert(`Invalid file types. Please upload JPEG or PNG files only.\nInvalid files: ${invalidFiles.join(', ')}`);
     }
 
-    if (newImages.length > 0) {
-      updateCarDetails({ images: [...carDetails.images, ...newImages] });
+    if (validFiles.length === 0) return;
+
+    // Convert files to base64 data URLs
+    try {
+      const imagePromises = validFiles.map(fileToDataURL);
+      const imageDataUrls = await Promise.all(imagePromises);
+      
+      updateCarDetails({
+        images: [...carDetails.images, ...imageDataUrls],
+      });
+    } catch (error) {
+      console.error('Error processing images:', error);
+      alert('Failed to process images. Please try again.');
     }
   };
 
-  const triggerBrowse = () => fileInputRef.current?.click();
+  // Handle browse files button click
+  const handleImageUpload = () => {
+    fileInputRef.current?.click();
+  };
+
+  // Handle file input change
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    handleFileSelect(e.target.files);
+    // Reset input value to allow selecting the same file again
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  // Handle drag and drop
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    
+    const files = e.dataTransfer.files;
+    await handleFileSelect(files);
+  };
 
   const removeImage = (index: number) => {
     const updatedImages = [...carDetails.images];
@@ -128,25 +165,14 @@ const ImagesAndSpecsForm: React.FC<ImagesAndSpecsFormProps> = ({
     (_, i) => new Date().getFullYear() - i
   );
   const fuelTypes = ["Petrol", "Diesel", "CNG", "Electric", "Hybrid", "LPG"];
-  const transmissions = ["Manual", "Automatic", "AMT", "CVT", "DCT", "Manual&Automatic"];
+  const transmissions = ["Manual", "Automatic", "AMT", "CVT", "DCT"];
   const ownerOptions = [
     "1st Owner",
     "2nd Owner",
     "3rd Owner",
     "4th Owner or more",
   ];
-  const insuranceOptions = [
-    "Comprehensive", 
-    "Third Party", 
-    "Zero Depreciation",
-    "Bumper to Bumper",
-    "Personal Accident Cover",
-    "Engine Protection",
-    "Roadside Assistance",
-    "Valid",
-    "Expired",
-    "Not Available"
-  ];
+  const insuranceOptions = ["Comprehensive", "Third Party", "Expired"];
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
@@ -170,6 +196,16 @@ const ImagesAndSpecsForm: React.FC<ImagesAndSpecsFormProps> = ({
           Car Photos
         </label>
 
+        {/* Hidden file input */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/jpeg,image/jpg,image/png"
+          multiple
+          className="hidden"
+          onChange={handleFileInputChange}
+        />
+
         <div
           className={`border-2 border-dashed rounded-lg p-6 text-center ${
             dragActive ? "border-blue-500 bg-blue-50" : "border-gray-300"
@@ -177,38 +213,20 @@ const ImagesAndSpecsForm: React.FC<ImagesAndSpecsFormProps> = ({
           onDragEnter={handleDrag}
           onDragLeave={handleDrag}
           onDragOver={handleDrag}
-          onDrop={(e) => {
-            handleDrag(e);
-            if (e.dataTransfer?.files) {
-              handleFiles(e.dataTransfer.files);
-            }
-          }}
+          onDrop={handleDrop}
         >
           <Upload className="h-10 w-10 text-gray-400 mx-auto mb-3" />
           <p className="text-gray-600">Drag photos here or</p>
           <button
             type="button"
-            onClick={triggerBrowse}
+            onClick={handleImageUpload}
             className="mt-2 inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
           >
             Browse Files
           </button>
           <p className="text-xs text-gray-500 mt-2">
-            Add up to 10 photos (JPEG or PNG)
+            Add up to 10 photos (JPEG or PNG) - {carDetails.images.length}/10 uploaded
           </p>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/jpeg,image/png"
-            multiple
-            className="hidden"
-            onChange={(e) => {
-              if (e.target.files) handleFiles(e.target.files);
-            }}
-          />
-          {uploadError && (
-            <p className="text-xs text-red-600 mt-2">{uploadError}</p>
-          )}
         </div>
         {carDetails.images.length > 0 && (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 mt-4">
@@ -241,8 +259,9 @@ const ImagesAndSpecsForm: React.FC<ImagesAndSpecsFormProps> = ({
             {carDetails.images.length < 10 && (
               <button
                 type="button"
-                onClick={triggerBrowse}
+                onClick={handleImageUpload}
                 className="aspect-video flex items-center justify-center border-2 border-dashed border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                title="Add more photos"
               >
                 <Plus className="h-6 w-6 text-gray-400" />
               </button>

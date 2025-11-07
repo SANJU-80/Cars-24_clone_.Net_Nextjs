@@ -114,16 +114,27 @@ const PurchasedCarsPage = () => {
   };
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
-  const [purchasedCars, setpurchasedCars] = useState<any>(null);
+  const [purchasedCars, setpurchasedCars] = useState<any[]>([]);
+  
   useEffect(() => {
     const fetchpurchasedCars = async () => {
       try {
-        if (user) {
-          const car = await getBookingbyuser(user?.id);
-          setpurchasedCars(car);
+        if (user?.id) {
+          const bookings = await getBookingbyuser(user.id);
+          console.log("Bookings received:", bookings);
+          
+          // Handle both array and single object responses
+          if (Array.isArray(bookings)) {
+            setpurchasedCars(bookings);
+          } else if (bookings) {
+            setpurchasedCars([bookings]);
+          } else {
+            setpurchasedCars([]);
+          }
         }
       } catch (error) {
-        console.error(error);
+        console.error("Error fetching bookings:", error);
+        setpurchasedCars([]);
       } finally {
         setLoading(false);
       }
@@ -131,20 +142,51 @@ const PurchasedCarsPage = () => {
 
     fetchpurchasedCars();
   }, [user]);
+  
   if (loading) {
     return (
-      <div className="flex justify-center items-center min-h-screen">
-        <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-gray-900" />
+      <div className="flex justify-center items-center min-h-screen bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-600 mx-auto mb-4" />
+          <p className="text-gray-600">Loading your bookings...</p>
+        </div>
       </div>
     );
   }
-  if (!purchasedCars) {
+  
+  if (!purchasedCars || purchasedCars.length === 0) {
     return (
-      <div className="text-center mt-10 text-red-500">Boooking not found.</div>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-red-500 text-xl font-semibold mb-2">
+            Booking not found.
+          </div>
+          <p className="text-gray-600 mb-4">You don't have any bookings yet.</p>
+          <Link
+            href="/buy-car"
+            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 inline-block"
+          >
+            Browse Cars
+          </Link>
+        </div>
+      </div>
     );
   }
-  const formatPrice = (price: string) => {
-    return "₹ " + parseInt(price).toLocaleString("en-IN");
+  const formatPrice = (price: string | number) => {
+    if (!price) return "₹ 0";
+    
+    // Remove any existing currency symbols, commas, and spaces
+    const cleanPrice = String(price)
+      .replace(/[₹,\s]/g, '')
+      .replace(/[^\d.]/g, '');
+    
+    // Parse as number to handle decimals if any
+    const numPrice = parseFloat(cleanPrice);
+    
+    if (isNaN(numPrice)) return "₹ 0";
+    
+    // Format with Indian number system (lakhs, crores)
+    return "₹ " + numPrice.toLocaleString("en-IN");
   };
 
   return (
@@ -155,8 +197,43 @@ const PurchasedCarsPage = () => {
         </h1>
         <p className="text-gray-600">Thank you for your purchase!</p>
       </div>
-      {purchasedCars.map((data: any) => (
-        <div className="max-w-5xl mx-auto bg-gray-50 rounded-lg overflow-hidden shadow-xl">
+      {purchasedCars.map((data: any, index: number) => {
+        // Handle API response structure - backend returns { Booking, Car }
+        const booking = data.Booking || data.booking || data;
+        const car = data.Car || data.car || {};
+        
+        // Extract car data with fallbacks for different API formats
+        const carId = car.Id || car.id || "";
+        const carTitle = car.Title || car.title || "Car";
+        const carImages = car.Images || car.images || [];
+        const carImage = Array.isArray(carImages) ? carImages[0] : carImages || "https://images.pexels.com/photos/170811/pexels-photo-170811.jpeg";
+        const carPrice = car.Price || car.price || "0";
+        const carEmi = car.Emi || car.emi || "";
+        const carLocation = car.Location || car.location || "";
+        const carSpecs = car.Specs || car.specs || {};
+        const carYear = carSpecs.Year || carSpecs.year || "";
+        const carKm = carSpecs.Km || carSpecs.km || "";
+        const carFuel = carSpecs.Fuel || carSpecs.fuel || "";
+        const carTransmission = carSpecs.Transmission || carSpecs.transmission || "";
+        const carOwner = carSpecs.Owner || carSpecs.owner || "";
+        const carInsurance = carSpecs.Insurance || carSpecs.insurance || "";
+        const carHighlights = car.Highlights || car.highlights || [];
+        const carFeatures = car.Features || car.features || [];
+        
+        // Extract booking data
+        const bookingId = booking.Id || booking.id || "";
+        const bookingName = booking.Name || booking.name || "";
+        const bookingPhone = booking.Phone || booking.phone || "";
+        const bookingEmail = booking.Email || booking.email || "";
+        const bookingAddress = booking.Address || booking.address || "";
+        const bookingDate = booking.PreferredDate || booking.preferredDate || "";
+        const bookingTime = booking.PreferredTime || booking.preferredTime || "";
+        const bookingPaymentMethod = booking.PaymentMethod || booking.paymentMethod || "";
+        const bookingLoanRequired = booking.LoanRequired || booking.loanRequired || "";
+        const bookingDownPayment = booking.DownPayment || booking.downPayment || "";
+        
+        return (
+        <div key={bookingId || index} className="max-w-5xl mx-auto bg-gray-50 rounded-lg overflow-hidden shadow-xl mb-8">
           <div className="bg-blue-900 text-white p-6 rounded-t-lg">
             <div className="flex justify-between items-start">
               <div>
@@ -165,17 +242,17 @@ const PurchasedCarsPage = () => {
                   <h1 className="text-2xl font-bold">Booking Confirmed</h1>
                 </div>
                 <p className="text-blue-200 mb-4">
-                  Booking ID: {data.booking.id.slice(-8).toUpperCase()}
+                  Booking ID: {bookingId ? bookingId.slice(-8).toUpperCase() : "N/A"}
                 </p>
 
                 <div className="flex flex-col md:flex-row gap-4">
                   <div className="flex items-center">
                     <Calendar className="w-5 h-5 mr-2 text-blue-300" />
-                    <span>{data.booking.preferredDate}</span>
+                    <span>{bookingDate || "Not scheduled"}</span>
                   </div>
                   <div className="flex items-center">
                     <Clock className="w-5 h-5 mr-2 text-blue-300" />
-                    <span>{data.booking.preferredTime}</span>
+                    <span>{bookingTime || "Not scheduled"}</span>
                   </div>
                 </div>
               </div>
@@ -189,34 +266,36 @@ const PurchasedCarsPage = () => {
             <div className="bg-white p-6 rounded-lg shadow-md mb-6 transition-all duration-300 hover:shadow-lg">
               <div className="flex flex-col md:flex-row gap-6">
                 {/* Car Image */}
-                <div className="md:w-2/5 h-64 overflow-hidden rounded-lg">
+                <div className="md:w-2/5 h-64 overflow-hidden rounded-lg bg-gray-200">
                   <img
-                    src={data.car.images[0]}
-                    alt={data.car.title}
+                    src={carImage}
+                    alt={carTitle}
                     className="w-full h-full object-cover transform transition-transform duration-700 hover:scale-105"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = "https://images.pexels.com/photos/170811/pexels-photo-170811.jpeg";
+                    }}
                   />
                 </div>
 
                 {/* Car Details */}
                 <div className="md:w-3/5">
                   <h2 className="text-2xl font-bold text-gray-800 mb-2">
-                    {data.car.title}
+                    {carTitle}
                   </h2>
-                  <p className="text-gray-600 mb-4">{data.car.location}</p>
+                  <p className="text-gray-600 mb-4">{carLocation || "Location not specified"}</p>
 
                   <div className="flex flex-col sm:flex-row gap-4 mb-6">
                     <div className="bg-blue-50 p-3 rounded-lg">
                       <p className="text-sm text-blue-700">Price</p>
                       <p className="text-xl font-bold text-blue-900">
-                        {formatPrice(data.car.price)}
+                        {formatPrice(carPrice)}
                       </p>
                     </div>
-                    {data.car.emi && (
+                    {carEmi && (
                       <div className="bg-amber-50 p-3 rounded-lg">
                         <p className="text-sm text-amber-700">EMI from</p>
                         <p className="text-xl font-bold text-amber-900">
-                          ₹ {parseInt(data.car.emi).toLocaleString("en-IN")}
-                          /month
+                          {formatPrice(carEmi)}/month
                         </p>
                       </div>
                     )}
@@ -227,63 +306,65 @@ const PurchasedCarsPage = () => {
                     Specifications
                   </h3>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
-                    <div className="flex items-center">
-                      <Calendar className="w-4 h-4 mr-2 text-blue-600" />
-                      <span className="text-gray-700">
-                        {data.car.specs.year}
-                      </span>
-                    </div>
-                    <div className="flex items-center">
-                      <Gauge className="w-4 h-4 mr-2 text-blue-600" />
-                      <span className="text-gray-700">
-                        {data.car.specs.km} km
-                      </span>
-                    </div>
-                    <div className="flex items-center">
-                      <Fuel className="w-4 h-4 mr-2 text-blue-600" />
-                      <span className="text-gray-700">
-                        {data.car.specs.fuel}
-                      </span>
-                    </div>
-                    <div className="flex items-center">
-                      <Settings className="w-4 h-4 mr-2 text-blue-600" />
-                      <span className="text-gray-700">
-                        {data.car.specs.transmission}
-                      </span>
-                    </div>
-                    <div className="flex items-center">
-                      <User className="w-4 h-4 mr-2 text-blue-600" />
-                      <span className="text-gray-700">
-                        {data.car.specs.owner}
-                      </span>
-                    </div>
-                    <div className="flex items-center">
-                      <Shield className="w-4 h-4 mr-2 text-blue-600" />
-                      <span className="text-gray-700">
-                        {data.car.specs.insurance}
-                      </span>
-                    </div>
+                    {carYear && (
+                      <div className="flex items-center">
+                        <Calendar className="w-4 h-4 mr-2 text-blue-600" />
+                        <span className="text-gray-700">{carYear}</span>
+                      </div>
+                    )}
+                    {carKm && (
+                      <div className="flex items-center">
+                        <Gauge className="w-4 h-4 mr-2 text-blue-600" />
+                        <span className="text-gray-700">{carKm} km</span>
+                      </div>
+                    )}
+                    {carFuel && (
+                      <div className="flex items-center">
+                        <Fuel className="w-4 h-4 mr-2 text-blue-600" />
+                        <span className="text-gray-700">{carFuel}</span>
+                      </div>
+                    )}
+                    {carTransmission && (
+                      <div className="flex items-center">
+                        <Settings className="w-4 h-4 mr-2 text-blue-600" />
+                        <span className="text-gray-700">{carTransmission}</span>
+                      </div>
+                    )}
+                    {carOwner && (
+                      <div className="flex items-center">
+                        <User className="w-4 h-4 mr-2 text-blue-600" />
+                        <span className="text-gray-700">{carOwner}</span>
+                      </div>
+                    )}
+                    {carInsurance && (
+                      <div className="flex items-center">
+                        <Shield className="w-4 h-4 mr-2 text-blue-600" />
+                        <span className="text-gray-700">{carInsurance}</span>
+                      </div>
+                    )}
                   </div>
 
                   {/* Highlights and Features */}
-                  <div className="flex flex-wrap gap-2 mt-4">
-                    {data.car.highlights.map((highlight: any, index: any) => (
-                      <span
-                        key={`highlight-${index}`}
-                        className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full"
-                      >
-                        {highlight}
-                      </span>
-                    ))}
-                    {data.car.features.map((feature: any, index: any) => (
-                      <span
-                        key={`feature-${index}`}
-                        className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full"
-                      >
-                        {feature}
-                      </span>
-                    ))}
-                  </div>
+                  {(carHighlights.length > 0 || carFeatures.length > 0) && (
+                    <div className="flex flex-wrap gap-2 mt-4">
+                      {Array.isArray(carHighlights) && carHighlights.map((highlight: any, idx: number) => (
+                        <span
+                          key={`highlight-${idx}`}
+                          className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full"
+                        >
+                          {highlight}
+                        </span>
+                      ))}
+                      {Array.isArray(carFeatures) && carFeatures.map((feature: any, idx: number) => (
+                        <span
+                          key={`feature-${idx}`}
+                          className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full"
+                        >
+                          {feature}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -303,7 +384,7 @@ const PurchasedCarsPage = () => {
                     <div>
                       <p className="text-sm text-gray-500">Name</p>
                       <p className="text-gray-800 font-medium">
-                        {data.booking.name}
+                        {bookingName || "Not provided"}
                       </p>
                     </div>
                   </div>
@@ -315,7 +396,7 @@ const PurchasedCarsPage = () => {
                     <div>
                       <p className="text-sm text-gray-500">Phone</p>
                       <p className="text-gray-800 font-medium">
-                        {data.booking.phone}
+                        {bookingPhone || "Not provided"}
                       </p>
                     </div>
                   </div>
@@ -327,7 +408,7 @@ const PurchasedCarsPage = () => {
                     <div>
                       <p className="text-sm text-gray-500">Email</p>
                       <p className="text-gray-800 font-medium">
-                        {data.booking.email}
+                        {bookingEmail || "Not provided"}
                       </p>
                     </div>
                   </div>
@@ -339,7 +420,7 @@ const PurchasedCarsPage = () => {
                     <div>
                       <p className="text-sm text-gray-500">Address</p>
                       <p className="text-gray-800 font-medium">
-                        {data.booking.address}
+                        {bookingAddress || "Not provided"}
                       </p>
                     </div>
                   </div>
@@ -355,15 +436,15 @@ const PurchasedCarsPage = () => {
                   <div className="flex justify-between items-center mb-3">
                     <span className="text-gray-600">Car Price</span>
                     <span className="font-semibold">
-                      {formatPrice(data.car.price)}
+                      {formatPrice(carPrice)}
                     </span>
                   </div>
 
-                  {data.booking.downPayment && (
+                  {bookingDownPayment && (
                     <div className="flex justify-between items-center mb-3">
                       <span className="text-gray-600">Down Payment</span>
                       <span className="font-semibold">
-                        {formatPrice(data.booking.downPayment)}
+                        {formatPrice(bookingDownPayment)}
                       </span>
                     </div>
                   )}
@@ -374,7 +455,7 @@ const PurchasedCarsPage = () => {
                         Total Amount
                       </span>
                       <span className="text-xl font-bold text-blue-900">
-                        {formatPrice(data.car.price)}
+                        {formatPrice(carPrice)}
                       </span>
                     </div>
                   </div>
@@ -386,7 +467,7 @@ const PurchasedCarsPage = () => {
                     <div>
                       <p className="text-sm text-gray-500">Payment Method</p>
                       <p className="text-gray-800 font-medium">
-                        {data.booking.paymentMethod}
+                        {bookingPaymentMethod || "Not specified"}
                       </p>
                     </div>
                   </div>
@@ -395,7 +476,9 @@ const PurchasedCarsPage = () => {
                     <Landmark className="w-5 h-5 mr-3 text-blue-600" />
                     <div>
                       <p className="text-sm text-gray-500">Financing</p>
-                      <p className="text-gray-800 font-medium">{data.booking.loanStatus}</p>
+                      <p className="text-gray-800 font-medium">
+                        {bookingLoanRequired === "yes" ? "Loan Required" : "Full Payment"}
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -409,7 +492,8 @@ const PurchasedCarsPage = () => {
             </p>
           </div>
         </div>
-      ))}
+        );
+      })}
 
       <div className="mt-8 text-center text-gray-500 text-sm print:hidden">
         <p>© 2025 Premium Auto Sales. All rights reserved.</p>

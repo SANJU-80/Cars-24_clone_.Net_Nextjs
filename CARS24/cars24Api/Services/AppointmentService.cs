@@ -1,7 +1,7 @@
-using Cars24Api.Models;
+using cars24Api.Models;
 using MongoDB.Driver;
 
-namespace Cars24Api.Services
+namespace cars24Api.Services
 {
     public class AppointmentService
     {
@@ -26,6 +26,11 @@ namespace Cars24Api.Services
         public async Task<List<Appointment>> GetAllAsync()
         {
             return await _appointment.Find(_ => true).ToListAsync();
+        }
+
+        public async Task UpdateAsync(string id, Appointment appointment)
+        {
+            await _appointment.ReplaceOneAsync(a => a.Id == id, appointment);
         }
     }
 }

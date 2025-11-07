@@ -1,9 +1,9 @@
 using Microsoft.AspNetCore.Mvc;
-using Cars24Api.Models;
-using Cars24Api.Services;
+using cars24Api.Models;
+using cars24Api.Services;
 using BCrypt.Net;
 
-namespace Cars24Api.Controllers;
+namespace cars24Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]

@@ -1,124 +1,116 @@
-import { initializeApp } from 'firebase/app';
-import { getMessaging, getToken, onMessage, MessagePayload } from 'firebase/messaging';
-// Updated to fix browser cache issues - Version: 1.0.3
+import { initializeApp, getApps, type FirebaseApp } from 'firebase/app';
+import { getMessaging, getToken, onMessage } from 'firebase/messaging';
 
-// Firebase configuration
 const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "your-api-key",
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || "your-project.firebaseapp.com",
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "your-project-id",
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "your-project.appspot.com",
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || "123456789",
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || "your-app-id"
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "YOUR_API_KEY",
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || "YOUR_AUTH_DOMAIN",
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "YOUR_PROJECT_ID",
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "YOUR_STORAGE_BUCKET",
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || "YOUR_MESSAGING_SENDER_ID",
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || "YOUR_APP_ID",
+  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
 };
 
-// Check if Firebase is properly configured
-const isFirebaseConfigured = () => {
-  return firebaseConfig.apiKey !== "your-api-key" && 
-         firebaseConfig.projectId !== "your-project-id" &&
-         firebaseConfig.messagingSenderId !== "123456789";
-};
-
-// Initialize Firebase only if properly configured
-let app: any = null;
-let messaging: any = null;
-
-if (isFirebaseConfigured() && typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+// Initialize Firebase
+let app: FirebaseApp | undefined;
+if (typeof window !== 'undefined') {
   try {
-    app = initializeApp(firebaseConfig);
-    messaging = getMessaging(app);
-    console.log('Firebase initialized successfully');
-  } catch (error) {
-    console.error('Firebase initialization failed:', error);
-    app = null;
-    messaging = null;
-  }
-} else {
-  console.warn('Firebase not configured - push notifications disabled');
-}
-
-export { messaging };
-
-// VAPID key for web push notifications
-export const VAPID_KEY = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY || null;
-
-// Request permission and get FCM token
-export const requestNotificationPermission = async (): Promise<string | null> => {
-  if (!messaging) {
-    console.log('Firebase messaging not available');
-    return null;
-  }
-
-  try {
-    const permission = await Notification.requestPermission();
-    
-    if (permission === 'granted') {
-      console.log('Notification permission granted.');
+    if (!getApps().length) {
+      // Check if config has placeholder values
+      const hasPlaceholders = 
+        firebaseConfig.apiKey === "YOUR_API_KEY" ||
+        firebaseConfig.projectId === "YOUR_PROJECT_ID";
       
-      // Check if VAPID key is properly configured
-      if (!VAPID_KEY) {
-        console.warn('VAPID key not configured. Trying to get token without VAPID key.');
-        // Try to get token without VAPID key (may work in some cases)
-        try {
-          const token = await getToken(messaging);
-          if (token) {
-            console.log('FCM registration token (without VAPID):', token);
-            return token;
-          }
-        } catch (vapidError) {
-          console.error('Failed to get token without VAPID key:', vapidError);
-        }
-        return null;
-      }
-      
-      // Get registration token with VAPID key
-      const token = await getToken(messaging, {
-        vapidKey: VAPID_KEY,
-      });
-      
-      if (token) {
-        console.log('FCM registration token:', token);
-        return token;
+      if (!hasPlaceholders) {
+        app = initializeApp(firebaseConfig);
       } else {
-        console.log('No registration token available.');
-        return null;
+        console.warn('Firebase not configured. Using placeholder values. Push notifications will not work.');
       }
     } else {
-      console.log('Unable to get permission to notify.');
-      return null;
+      app = getApps()[0];
     }
   } catch (error) {
-    console.error('An error occurred while retrieving token:', error);
+    console.warn('Firebase initialization failed:', error);
+    app = undefined;
+  }
+}
+
+// Get FCM token
+export const getFCMToken = async (): Promise<string | null> => {
+  if (typeof window === 'undefined' || typeof navigator === 'undefined' || !app) {
     return null;
   }
+
+  try {
+    const messaging = getMessaging(app);
+    const vapidKey = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY;
+    
+    // Check if VAPID key is configured
+    if (!vapidKey || vapidKey === "YOUR_VAPID_KEY" || vapidKey.trim() === "") {
+      console.warn('Firebase VAPID key is not configured. Push notifications will not work.');
+      return null;
+    }
+    
+    const currentToken = await getToken(messaging, { vapidKey });
+    
+    if (currentToken) {
+      console.log('FCM Token:', currentToken);
+      return currentToken;
+    } else {
+      console.log('No registration token available. Request permission to generate one.');
+      return null;
+    }
+  } catch (err: any) {
+    // Handle specific VAPID key errors gracefully
+    if (err?.code === 'messaging/invalid-vapid-key' || err?.message?.includes('applicationServerKey')) {
+      console.warn('Invalid VAPID key. Please configure NEXT_PUBLIC_FIREBASE_VAPID_KEY in your .env.local file.');
+      return null;
+    }
+    console.error('An error occurred while retrieving token. ', err);
+    return null;
+  }
+};
+
+// Request notification permission
+export const requestNotificationPermission = async (): Promise<NotificationPermission> => {
+  if (typeof window === 'undefined' || typeof Notification === 'undefined') {
+    return 'denied';
+  }
+
+  if (Notification.permission === 'granted') {
+    return 'granted';
+  }
+
+  if (Notification.permission === 'denied') {
+    return 'denied';
+  }
+
+  const permission = await Notification.requestPermission();
+  return permission;
 };
 
 // Listen for foreground messages
-export const onMessageListener = (): Promise<MessagePayload> => {
-  if (!messaging) {
-    return Promise.reject('Firebase messaging not available');
-  }
+export const onMessageListener = () => {
+  return new Promise((resolve, reject) => {
+    if (typeof window === 'undefined' || !app) {
+      // Resolve with null if not in browser or app not initialized
+      resolve(null);
+      return;
+    }
 
-  return new Promise((resolve) => {
-    onMessage(messaging, (payload) => {
-      console.log('Message received in foreground:', payload);
-      resolve(payload);
-    });
+    try {
+      const messaging = getMessaging(app);
+      onMessage(messaging, (payload) => {
+        console.log('Message received in foreground:', payload);
+        resolve(payload);
+      });
+    } catch (error) {
+      // If Firebase messaging fails, resolve with null instead of rejecting
+      console.warn('Firebase messaging not available:', error);
+      resolve(null);
+    }
   });
 };
 
-// Service worker registration
-export const registerServiceWorker = async (): Promise<ServiceWorkerRegistration | null> => {
-  if (typeof window === 'undefined' || !('serviceWorker' in navigator)) {
-    return null;
-  }
+export default app;
 
-  try {
-    const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
-    console.log('Service Worker registered successfully:', registration);
-    return registration;
-  } catch (error) {
-    console.error('Service Worker registration failed:', error);
-    return null;
-  }
-};

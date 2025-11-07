@@ -6,8 +6,6 @@ import { useRouter } from "next/router";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
 import { createCar } from "@/lib/Carapi";
-import { checkLocalStorageQuota, limitImageForStorage } from "@/lib/storageUtils";
-
 type CarDetails = {
   id: string;
   title: string;
@@ -72,140 +70,45 @@ const index = () => {
     e.preventDefault();
     if (!user) {
       toast.error("Please login to continue");
-      router.push("/login");
       return;
     }
-
+    
     // Validate required fields
     if (!carDetails.title || !carDetails.price || !carDetails.location) {
       toast.error("Please fill in all required fields");
       return;
     }
 
-    if (carDetails.images.length === 0) {
+    if (!carDetails.images || carDetails.images.length === 0) {
       toast.error("Please upload at least one car image");
       return;
     }
 
     try {
-      // Add a unique ID to the car details
-      const carWithId = {
-        ...carDetails,
-        id: carDetails.id || uuidv4()
-      };
-
-      // Save to localStorage for immediate display
-      const carForDisplay = {
-        id: carWithId.id,
-        brand: carWithId.title.split(' ')[0] || 'Unknown', // Extract brand from title
-        avgAnnualServiceCost: 15000, // Default value
-        majorServiceInterval: 10000, // Default value
-        tireLife: 45000, // Default value
-        title: carWithId.title,
-        km: carWithId.specs.km,
-        fuel: carWithId.specs.fuel,
-        transmission: carWithId.specs.transmission,
-        owner: carWithId.specs.owner,
-        emi: carWithId.emi,
-        price: carWithId.price,
-        location: carWithId.location,
-        image: Array.isArray(carWithId.images) ? carWithId.images[0] || '' : carWithId.images || '', // Use first uploaded image
-      };
+      console.log("Saving car to MongoDB:", {
+        title: carDetails.title,
+        images: carDetails.images.length,
+        price: carDetails.price,
+        location: carDetails.location
+      });
       
-      console.log('🚗 SELL CAR DEBUG:');
-      console.log('Car images array:', carWithId.images);
-      console.log('First image (base64):', carWithId.images[0]?.substring(0, 50) + '...');
-      console.log('Car for display:', carForDisplay);
-      console.log('First image for display:', carForDisplay.image?.substring(0, 50) + '...');
+      const car = await createCar(carDetails);
+      console.log("Car saved response:", car);
       
-      // Save to localStorage as backup with quota management
-      try {
-        // Check if localStorage has space before attempting to save
-        if (!checkLocalStorageQuota()) {
-          console.warn('localStorage quota exceeded, skipping backup save');
-          toast.warning('Browser storage full - car will only be saved to server');
-        } else {
-          const existingCars = JSON.parse(localStorage.getItem('uploadedCars') || '[]');
-          
-          // Limit localStorage to 5 cars max to prevent quota exceeded error
-          const MAX_LOCAL_CARS = 5;
-          if (existingCars.length >= MAX_LOCAL_CARS) {
-            // Remove oldest cars to make space
-            existingCars.splice(0, existingCars.length - MAX_LOCAL_CARS + 1);
-          }
-          
-          // Limit image sizes before storing to prevent quota exceeded error
-          const compressedCar = {
-            ...carForDisplay,
-            image: carForDisplay.image ? limitImageForStorage(carForDisplay.image) : carForDisplay.image,
-            images: carForDisplay.images ? carForDisplay.images.map(img => limitImageForStorage(img)) : carForDisplay.images
-          };
-          
-          existingCars.push(compressedCar);
-          localStorage.setItem('uploadedCars', JSON.stringify(existingCars));
-          console.log('🚗 Saved to localStorage as backup');
-        }
-      } catch (storageError: any) {
-        console.warn('Failed to save to localStorage:', storageError.message);
-        
-        // If quota exceeded, try to clear old data and retry once
-        if (storageError.name === 'QuotaExceededError') {
-          try {
-            console.log('Clearing localStorage and retrying...');
-            localStorage.removeItem('uploadedCars');
-            const compressedCar = {
-              ...carForDisplay,
-              image: carForDisplay.image ? limitImageForStorage(carForDisplay.image) : carForDisplay.image,
-              images: carForDisplay.images ? carForDisplay.images.map(img => limitImageForStorage(img)) : carForDisplay.images
-            };
-            localStorage.setItem('uploadedCars', JSON.stringify([compressedCar]));
-            console.log('🚗 Saved to localStorage after clearing old data');
-            toast.info('Cleared old data to make space for new car');
-          } catch (retryError) {
-            console.warn('Failed to save even after clearing localStorage:', retryError);
-            toast.warning('Could not save backup - car will only be saved to server');
-          }
-        }
-      }
-
-      try {
-        const car = await createCar(carWithId);
-        console.log("Car created successfully:", car);
-        
-        const newId = car?.id || car?.Id || car?._id || carWithId.id;
-        if (newId) {
-          toast.success("Car listed successfully!");
-          // Redirect to Buy-Car details page so the user can see the listing like in buy list
-          router.push(`/buy-car/${newId}`);
-        } else {
-          // Fallback: go to listing page even if backend didn't return id
-          toast.success("Car listed. Redirecting to listings.");
-          router.push(`/buy-car`);
-        }
-      } catch (backendError: any) {
-        console.warn("Backend not available, using localStorage:", backendError.message);
-        toast.success("Car saved locally! (Backend not available)");
-        router.push(`/buy-car`);
-      }
-    } catch (error: any) {
-      console.error("Car creation error:", error);
-      
-      // More specific error handling
-      if (error.message?.includes("401") || error.message?.includes("Unauthorized")) {
-        toast.error("Please login to continue");
-        router.push("/login");
-      } else if (error.message?.includes("400") || error.message?.includes("Bad Request")) {
-        toast.error("Please check your car details and try again");
-      } else if (error.message?.includes("500") || error.message?.includes("Internal Server Error")) {
-        toast.error("Server error. Please try again later");
-      } else if (error.message?.includes("Network error") || error.message?.includes("timeout")) {
-        toast.error("Network issue. Please check your internet connection and try again");
+      // Handle both PascalCase (Id) and camelCase (id) from backend
+      const carId = car?.Id || car?.id || car?.carId;
+      if (carId) {
+        console.log("Car saved successfully with ID:", carId);
+        toast.success("Car listed successfully! Your car is now visible on the buy used car page.");
+        router.push("/buy-car");
       } else {
-        // For other errors, show a more helpful message
-        toast.error("Unable to connect to server. Please try again later.");
+        console.error("Car ID not returned:", car);
+        toast.error("Car saved but ID not returned");
       }
-      
-      // Don't redirect on error, let user fix the issue
+    } catch (error) {
+      console.error("Error saving car:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to list car";
+      toast.error(`Failed to save: ${errorMessage}`);
     }
   };
   return (

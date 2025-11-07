@@ -1,139 +1,91 @@
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
-import { useAuth } from './AuthContext';
-import { 
-  getUserNotifications, 
-  getUnreadCount, 
-  markAsRead, 
-  markAsClicked,
-  getUserPreferences,
-  updateUserPreferences,
-  registerFCMToken,
-  unregisterFCMToken,
-  Notification,
-  UserNotificationPreferences
-} from '@/lib/notificationapi';
-import { 
-  requestNotificationPermission, 
-  onMessageListener, 
-  registerServiceWorker 
-} from '@/lib/firebase';
-import { toast } from 'sonner';
+"use client";
 
-interface NotificationContextType {
+import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
+import { useAuth } from "./AuthContext";
+import * as notificationApi from "@/lib/notificationapi";
+import { getFCMToken, requestNotificationPermission, onMessageListener } from "@/lib/firebase";
+import { toast } from "sonner";
+
+type Notification = {
+  id?: string;
+  userId: string;
+  title: string;
+  body: string;
+  type: string;
+  relatedId?: string;
+  isRead: boolean;
+  createdAt: string;
+  data?: Record<string, string>;
+};
+
+type NotificationPreferences = {
+  appointmentConfirmations: boolean;
+  bidUpdates: boolean;
+  priceDrops: boolean;
+  newMessages: boolean;
+  emailNotifications: boolean;
+  pushNotifications: boolean;
+};
+
+type NotificationContextType = {
   notifications: Notification[];
   unreadCount: number;
-  preferences: UserNotificationPreferences | null;
+  preferences: NotificationPreferences | null;
   loading: boolean;
-  error: string | null;
-  
-  // Actions
   refreshNotifications: () => Promise<void>;
-  markNotificationAsRead: (notificationId: string) => Promise<void>;
-  markNotificationAsClicked: (notificationId: string) => Promise<void>;
-  updatePreferences: (preferences: UserNotificationPreferences) => Promise<void>;
-  initializeNotifications: () => Promise<void>;
-  
-  // FCM
-  fcmToken: string | null;
-  isFCMInitialized: boolean;
-}
+  markAsRead: (notificationId: string) => Promise<void>;
+  markAllAsRead: () => Promise<void>;
+  updatePreferences: (prefs: Partial<NotificationPreferences>) => Promise<void>;
+  registerToken: () => Promise<void>;
+};
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
 
-export const useNotifications = () => {
-  const context = useContext(NotificationContext);
-  if (context === undefined) {
-    throw new Error('useNotifications must be used within a NotificationProvider');
-  }
-  return context;
-};
-
-interface NotificationProviderProps {
-  children: React.ReactNode;
-}
-
-export const NotificationProvider: React.FC<NotificationProviderProps> = ({ children }) => {
+export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
   const { user } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
-  const [preferences, setPreferences] = useState<UserNotificationPreferences | null>(null);
+  const [preferences, setPreferences] = useState<NotificationPreferences | null>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [fcmToken, setFcmToken] = useState<string | null>(null);
-  const [isFCMInitialized, setIsFCMInitialized] = useState(false);
 
-  // Initialize notifications and FCM
-  const initializeNotifications = useCallback(async () => {
+  // Register FCM token
+  const registerToken = useCallback(async () => {
     if (!user?.id) return;
 
     try {
-      setLoading(true);
-      setError(null);
-
-      // Register service worker
-      await registerServiceWorker();
-
-      // Request notification permission and get FCM token
-      try {
-        const token = await requestNotificationPermission();
-        if (token) {
-          setFcmToken(token);
-          
-          // Register token with backend
-          try {
-            await registerFCMToken({
-              userId: user.id,
-              token: token,
-              deviceType: 'web',
-              deviceId: navigator.userAgent,
-              userAgent: navigator.userAgent
-            });
-          } catch (registerError) {
-            console.warn('Failed to register FCM token with backend:', registerError);
-            // Continue without backend registration - notifications will still work locally
-          }
-        }
-      } catch (fcmError) {
-        console.warn('FCM initialization failed:', fcmError);
-        // Continue without FCM - the app will still work without push notifications
+      const permission = await requestNotificationPermission();
+      if (permission !== "granted") {
+        console.log("Notification permission denied");
+        return;
       }
 
-      // Load user preferences
-      const userPreferences = await getUserPreferences(user.id);
-      setPreferences(userPreferences);
+      // Register service worker
+      if ("serviceWorker" in navigator) {
+        try {
+          const registration = await navigator.serviceWorker.register("/firebase-messaging-sw.js");
+          console.log("Service Worker registered:", registration);
+        } catch (error) {
+          console.warn("Service Worker registration failed (this is normal if Firebase is not configured):", error);
+        }
+      }
 
-      // Load notifications
-      await refreshNotifications();
-
-      // Set up foreground message listener
-      onMessageListener().then((payload) => {
-        console.log('Foreground message received:', payload);
-        
-        // Show toast notification
-        toast.info(payload.notification?.title || 'New Notification', {
-          description: payload.notification?.body,
-          action: {
-            label: 'View',
-            onClick: () => {
-              if (payload.data?.actionUrl) {
-                window.location.href = payload.data.actionUrl;
-              }
-            }
-          }
-        });
-
-        // Refresh notifications
-        refreshNotifications();
-      }).catch((error) => {
-        console.error('Error setting up message listener:', error);
-      });
-
-      setIsFCMInitialized(true);
-    } catch (error: any) {
-      console.error('Error initializing notifications:', error);
-      setError(error.message);
-    } finally {
-      setLoading(false);
+      const token = await getFCMToken();
+      if (token) {
+        setFcmToken(token);
+        try {
+          await notificationApi.registerFCMToken(user.id, token);
+          console.log("FCM token registered successfully");
+        } catch (error) {
+          console.warn("Failed to register FCM token with backend (backend may not be running):", error);
+        }
+      } else {
+        console.log("FCM token not available (Firebase may not be configured)");
+      }
+    } catch (error) {
+      console.warn("Error registering FCM token (this is normal if Firebase is not configured):", error);
     }
   }, [user?.id]);
 
@@ -141,118 +93,136 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
   const refreshNotifications = useCallback(async () => {
     if (!user?.id) return;
 
+    setLoading(true);
     try {
-      const [notificationsData, unreadCountData] = await Promise.all([
-        getUserNotifications(user.id, 1, 50),
-        getUnreadCount(user.id)
+      const [notificationsData, unreadData, prefsData] = await Promise.all([
+        notificationApi.getUserNotifications(user.id),
+        notificationApi.getUnreadCount(user.id),
+        notificationApi.getNotificationPreferences(user.id),
       ]);
 
-      setNotifications(notificationsData);
-      setUnreadCount(unreadCountData);
-    } catch (error: any) {
-      console.error('Error refreshing notifications:', error);
-      setError(error.message);
+      setNotifications(notificationsData || []);
+      setUnreadCount(unreadData?.count || 0);
+      setPreferences(prefsData || null);
+    } catch (error) {
+      console.error("Error refreshing notifications:", error);
+    } finally {
+      setLoading(false);
     }
   }, [user?.id]);
 
   // Mark notification as read
-  const markNotificationAsRead = useCallback(async (notificationId: string) => {
+  const markAsRead = useCallback(
+    async (notificationId: string) => {
+      if (!user?.id) return;
+
+      try {
+        await notificationApi.markNotificationAsRead(notificationId, user.id);
+        setNotifications((prev) =>
+          prev.map((n) => (n.id === notificationId ? { ...n, isRead: true } : n))
+        );
+        setUnreadCount((prev) => Math.max(0, prev - 1));
+      } catch (error) {
+        console.error("Error marking notification as read:", error);
+      }
+    },
+    [user?.id]
+  );
+
+  // Mark all as read
+  const markAllAsRead = useCallback(async () => {
     if (!user?.id) return;
 
     try {
-      await markAsRead(notificationId, user.id);
-      
-      // Update local state
-      setNotifications(prev => 
-        prev.map(notification => 
-          notification.id === notificationId 
-            ? { ...notification, isRead: true, readAt: new Date().toISOString() }
-            : notification
-        )
-      );
-      
-      setUnreadCount(prev => Math.max(0, prev - 1));
-    } catch (error: any) {
-      console.error('Error marking notification as read:', error);
-      setError(error.message);
-    }
-  }, [user?.id]);
-
-  // Mark notification as clicked
-  const markNotificationAsClicked = useCallback(async (notificationId: string) => {
-    if (!user?.id) return;
-
-    try {
-      await markAsClicked(notificationId, user.id);
-      
-      // Update local state
-      setNotifications(prev => 
-        prev.map(notification => 
-          notification.id === notificationId 
-            ? { ...notification, isClicked: true, clickedAt: new Date().toISOString() }
-            : notification
-        )
-      );
-    } catch (error: any) {
-      console.error('Error marking notification as clicked:', error);
-      setError(error.message);
+      await notificationApi.markAllNotificationsAsRead(user.id);
+      setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+      setUnreadCount(0);
+    } catch (error) {
+      console.error("Error marking all as read:", error);
     }
   }, [user?.id]);
 
   // Update preferences
-  const updatePreferences = useCallback(async (newPreferences: UserNotificationPreferences) => {
-    if (!user?.id) return;
+  const updatePreferences = useCallback(
+    async (prefs: Partial<NotificationPreferences>) => {
+      if (!user?.id) return;
 
-    try {
-      const updatedPreferences = await updateUserPreferences(user.id, newPreferences);
-      setPreferences(updatedPreferences);
-    } catch (error: any) {
-      console.error('Error updating preferences:', error);
-      setError(error.message);
-    }
-  }, [user?.id]);
+      try {
+        await notificationApi.updateNotificationPreferences(user.id, prefs);
+        setPreferences((prev) => (prev ? { ...prev, ...prefs } : null));
+        toast.success("Notification preferences updated");
+      } catch (error) {
+        console.error("Error updating preferences:", error);
+        toast.error("Failed to update preferences");
+      }
+    },
+    [user?.id]
+  );
 
-  // Initialize when user changes
+  // Initialize: register token and load notifications when user logs in
   useEffect(() => {
     if (user?.id) {
-      initializeNotifications();
+      registerToken();
+      refreshNotifications();
+
+      // Set up foreground message listener
+      onMessageListener()
+        .then((payload: any) => {
+          if (payload) {
+            console.log("Foreground message received:", payload);
+            toast.info(payload.notification?.title || payload.data?.title, {
+              description: payload.notification?.body || payload.data?.body,
+            });
+            refreshNotifications();
+          }
+        })
+        .catch((err) => {
+          // Silently handle errors - Firebase may not be configured
+          console.warn("Message listener not available:", err);
+        });
+
+      // Refresh notifications every 30 seconds
+      const interval = setInterval(refreshNotifications, 30000);
+      return () => clearInterval(interval);
     } else {
-      // Clean up when user logs out
       setNotifications([]);
       setUnreadCount(0);
       setPreferences(null);
-      setFcmToken(null);
-      setIsFCMInitialized(false);
     }
-  }, [user?.id, initializeNotifications]);
+  }, [user?.id, registerToken, refreshNotifications]);
 
-  // Clean up FCM token on unmount
+  // Clean up token on logout
   useEffect(() => {
-    return () => {
-      if (fcmToken) {
-        unregisterFCMToken(fcmToken).catch(console.error);
-      }
-    };
-  }, [fcmToken]);
-
-  const value: NotificationContextType = {
-    notifications,
-    unreadCount,
-    preferences,
-    loading,
-    error,
-    refreshNotifications,
-    markNotificationAsRead,
-    markNotificationAsClicked,
-    updatePreferences,
-    initializeNotifications,
-    fcmToken,
-    isFCMInitialized
-  };
+    if (!user?.id && fcmToken) {
+      // Token cleanup would happen here if we had userId
+      setFcmToken(null);
+    }
+  }, [user?.id, fcmToken]);
 
   return (
-    <NotificationContext.Provider value={value}>
+    <NotificationContext.Provider
+      value={{
+        notifications,
+        unreadCount,
+        preferences,
+        loading,
+        refreshNotifications,
+        markAsRead,
+        markAllAsRead,
+        updatePreferences,
+        registerToken,
+      }}
+    >
       {children}
     </NotificationContext.Provider>
   );
 };
+
+export const useNotifications = () => {
+  const context = useContext(NotificationContext);
+  if (!context) {
+    throw new Error("useNotifications must be used within a NotificationProvider");
+  }
+  return context;
+};
+

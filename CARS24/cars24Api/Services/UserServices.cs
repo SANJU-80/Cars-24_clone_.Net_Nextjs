@@ -1,7 +1,7 @@
-using Cars24Api.Models;
+using cars24Api.Models;
 using MongoDB.Driver;
 
-namespace Cars24Api.Services;
+namespace cars24Api.Services;
 
 public class UserService
 {
@@ -27,7 +27,12 @@ public class UserService
     }
     public async Task UpdateAsync(string id, User user)
     {
-        _users.ReplaceOneAsync(u => u.Id == id, user);
+        await _users.ReplaceOneAsync(u => u.Id == id, user);
+    }
+
+    public async Task<List<User>> GetAllAsync()
+    {
+        return await _users.Find(_ => true).ToListAsync();
     }
 
 }

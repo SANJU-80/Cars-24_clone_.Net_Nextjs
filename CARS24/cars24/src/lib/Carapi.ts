@@ -1,6 +1,55 @@
-import { updateCarsImages, updateCarImage, preserveUploadedCarImages, forceUseUploadedImages } from './carImageGenerator';
+const ENV_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+const REMOTE_ROOT = "https://cars-24-clone-net-nextjs.onrender.com";
+const LOCAL_ROOT = "http://localhost:5092";
 
-const BASE_URL = "http://localhost:5092/api/Car";
+const buildApiUrl = (root: string) => `${root.replace(/\/$/, "")}/api/Car`;
+
+const ENV_API_URL = ENV_BASE_URL ? buildApiUrl(ENV_BASE_URL) : null;
+const REMOTE_API_URL = buildApiUrl(REMOTE_ROOT);
+const LOCAL_API_URL = buildApiUrl(LOCAL_ROOT);
+
+const isBrowser = typeof window !== "undefined";
+
+type ApiUrl = string;
+
+const getApiEndpoints = (): ApiUrl[] => {
+  const hostname = isBrowser ? window.location.hostname : undefined;
+  const preferLocal =
+    hostname === "localhost" ||
+    hostname === "127.0.0.1" ||
+    (!isBrowser && process.env.NODE_ENV !== "production");
+
+  const primaryEndpoints = preferLocal
+    ? [LOCAL_API_URL, REMOTE_API_URL]
+    : [REMOTE_API_URL, LOCAL_API_URL];
+
+  const endpoints: ApiUrl[] = [];
+  const seen = new Set<ApiUrl>();
+  const addEndpoint = (url: ApiUrl | null) => {
+    if (!url || seen.has(url)) {
+      return;
+    }
+    seen.add(url);
+    endpoints.push(url);
+  };
+
+  addEndpoint(ENV_API_URL);
+  primaryEndpoints.forEach(addEndpoint);
+
+  return endpoints;
+};
+
+const buildConnectionError = (apiUrl: ApiUrl, hasFallback: boolean) => {
+  if (apiUrl === LOCAL_API_URL) {
+    return new Error("Cannot connect to backend. Please make sure your .NET backend is running on http://localhost:5092");
+  }
+
+  if (apiUrl === REMOTE_API_URL) {
+    return new Error(hasFallback ? "Cannot reach hosted API. Trying local backend..." : "Cannot reach hosted API.");
+  }
+
+  return new Error(`Cannot reach API at ${apiUrl}`);
+};
 
 type CarDetails = {
   title: string;
@@ -19,13 +68,48 @@ type CarDetails = {
   features: string[];
   highlights: string[];
 };
-export const createCar = async (carDetails: CarDetails) => {
-  // Keep all images including data URLs (base64) for uploaded images
-  const allImages = carDetails.images || [];
 
-  const payload = {
+export interface SearchFilters {
+  query?: string;
+  fuelType?: string;
+  transmission?: string;
+  minYear?: number;
+  maxYear?: number;
+  minMileage?: number;
+  maxMileage?: number;
+  minPrice?: number;
+  maxPrice?: number;
+  location?: string;
+  skip?: number;
+  limit?: number;
+}
+
+export interface SearchResult {
+  Id: string;
+  Title: string;
+  km: string;
+  Fuel: string;
+  Transmission: string;
+  Owner: string;
+  Emi: string;
+  Price: string;
+  Location: string;
+  image: string[];
+  Year: number;
+  RelevanceScore: number;
+}
+
+export interface SearchResponse {
+  results: SearchResult[];
+  total: number;
+  query?: string;
+  filters: SearchFilters;
+}
+
+export const createCar = async (carDetails: CarDetails) => {
+  const requestBody = {
     Title: carDetails.title,
-    Images: allImages,
+    Images: carDetails.images,
     Price: carDetails.price,
     Emi: carDetails.emi,
     Location: carDetails.location,
@@ -37,181 +121,284 @@ export const createCar = async (carDetails: CarDetails) => {
       Owner: carDetails.specs.owner,
       Insurance: carDetails.specs.insurance,
     },
-    Features: carDetails.features || [],
-    Highlights: carDetails.highlights || [],
+    Features: carDetails.features,
+    Highlights: carDetails.highlights,
   };
 
-  console.log("🚗 CREATE CAR DEBUG:");
-  console.log("Original carDetails.images:", carDetails.images);
-  console.log("Payload.Images:", payload.Images);
-  console.log("First image in payload:", payload.Images[0]?.substring(0, 50) + '...');
-  console.log("Full payload:", payload);
+  let lastError: Error | null = null;
+  const endpoints = getApiEndpoints();
 
-  try {
-    console.log("🚗 Creating car with payload:", payload);
-    console.log("🚗 API URL:", `${BASE_URL}`);
+  for (let index = 0; index < endpoints.length; index++) {
+    const apiUrl = endpoints[index];
+    const isLastEndpoint = index === endpoints.length - 1;
 
-    // Add timeout to prevent hanging
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+    try {
+      const response = await fetch(`${apiUrl}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(requestBody),
+      });
 
-    const response = await fetch(`${BASE_URL}`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(payload),
-      signal: controller.signal,
-    });
-
-    clearTimeout(timeoutId);
-    console.log("🚗 Response status:", response.status);
-    console.log("🚗 Response headers:", response.headers);
-
-    if (!response.ok) {
-      console.warn(`Create car failed with status: ${response.status}`);
-      
-      // For non-2xx responses, try to get error details
-      let errorMessage = `HTTP ${response.status}`;
-      try {
-        const errorData = await response.json();
-        errorMessage = errorData.message || errorData.error || errorMessage;
-      } catch {
-        // If JSON parsing fails, try text
-        try {
-        const text = await response.text();
-        errorMessage = text || errorMessage;
-        } catch {
-          // If all else fails, use default message
-          errorMessage = `Server responded with ${response.status}`;
-        }
+      if (response.ok) {
+        return response.json();
       }
-      
-      console.error("Create car error:", errorMessage);
-      throw new Error(`Create car failed: ${errorMessage}`);
-    }
 
-    const result = await response.json();
-    console.log("Car created successfully:", result);
-    return result;
-  } catch (error: any) {
-    console.error("Create car error:", error);
-    
-    // Handle specific error types with better messages
-    if (error.name === 'AbortError') {
-      throw new Error("Request timed out. Please check if the backend server is running.");
-    } else if (error.message?.includes('Failed to fetch') || error.message?.includes('NetworkError')) {
-      throw new Error("Cannot connect to backend server. Please make sure the backend is running on http://localhost:5092");
-    } else if (error.message?.includes('NetworkError')) {
-      throw new Error("Network error occurred. Please try again.");
+      const errorData = await response.json().catch(() => ({}));
+      const errorMessage = errorData.message || `Failed to create car: ${response.status}`;
+      lastError = new Error(errorMessage);
+
+      if (!isLastEndpoint) {
+        continue;
+      }
+
+      throw lastError;
+    } catch (error) {
+      if (error instanceof TypeError || (error instanceof Error && error.message.includes("fetch"))) {
+        lastError = buildConnectionError(apiUrl, !isLastEndpoint);
+        if (!isLastEndpoint) {
+          continue;
+        }
+        break;
+      }
+
+      if (error instanceof Error) {
+        lastError = error;
+        if (!isLastEndpoint) {
+          continue;
+        }
+        throw error;
+      }
+
+      lastError = new Error("Unknown error occurred");
     }
-    
-    // Re-throw the original error if it's already a meaningful message
-    throw error;
   }
+
+  throw lastError || new Error("Cannot connect to server. Please make sure your backend is running.");
 };
+
 export const getcarByid = async (id: string) => {
-  try {
-  const response = await fetch(`${BASE_URL}/${id}`);
-    
-    if (!response.ok) {
-      console.warn(`Car with ID ${id} not found (${response.status})`);
-      // Return null if car not found
-      return null;
-    }
+  let lastError: Error | null = null;
+  const endpoints = getApiEndpoints();
 
-    const carData = await response.json();
-    console.log("🚗 Raw car data from API:", carData);
-    
-    // Ensure the car data has the expected structure
-    const processedCar = {
-      ...carData,
-      // If specs is missing, create it from the car data
-      specs: carData.specs || {
-        year: carData.year || new Date().getFullYear(),
-        km: carData.km || "N/A",
-        fuel: carData.fuel || "N/A",
-        transmission: carData.transmission || "N/A",
-        owner: carData.owner || "N/A",
-        insurance: carData.insurance || "N/A"
-      },
-      // Ensure arrays exist
-      features: carData.features || [],
-      highlights: carData.highlights || [],
-      images: carData.images || [carData.image].filter(Boolean)
-    };
-    
-    console.log("🚗 Processed car data:", processedCar);
-    return forceUseUploadedImages(processedCar);
-  } catch (error: any) {
-    console.error("Error fetching car by ID:", error);
-    // Return null if error occurs
-    return null;
+  for (let index = 0; index < endpoints.length; index++) {
+    const apiUrl = endpoints[index];
+    const isLastEndpoint = index === endpoints.length - 1;
+
+    try {
+      const response = await fetch(`${apiUrl}/${id}`);
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          if (!isLastEndpoint) {
+            continue;
+          }
+          throw new Error("Car not found");
+        }
+
+        if (!isLastEndpoint) {
+          continue;
+        }
+
+        throw new Error(`Failed to fetch car: ${response.status}`);
+      }
+
+      const data = await response.json();
+      if (data) {
+        return data;
+      }
+    } catch (error) {
+      if (error instanceof TypeError || (error instanceof Error && error.message.includes("fetch"))) {
+        lastError = buildConnectionError(apiUrl, !isLastEndpoint);
+        if (!isLastEndpoint) {
+          continue;
+        }
+        break;
+      }
+
+      if (error instanceof Error) {
+        lastError = error;
+        if (!isLastEndpoint) {
+          continue;
+        }
+        throw error;
+      }
+
+      lastError = new Error("Unknown error occurred");
+    }
   }
+
+  throw lastError || new Error("Cannot connect to server. Please make sure your backend is running.");
 };
-// No hardcoded fallback cars - only use data from API or localStorage
 
 export const getcarSummaries = async () => {
-  try {
-    console.log("🚗 Fetching car summaries from API...");
-    console.log("🚗 API URL:", `${BASE_URL}/summaries`);
-    const response = await fetch(`${BASE_URL}/summaries`);
-    
-    if (!response.ok) {
-      console.warn(`API not available (${response.status}), returning empty array`);
-      return [];
-    }
+  let lastError: Error | null = null;
+  const endpoints = getApiEndpoints();
 
-    const data = await response.json();
-    
-    // If API returns empty array or invalid data, return empty array
-    if (!Array.isArray(data) || data.length === 0) {
-      console.warn("API returned empty or invalid data, returning empty array");
-      return [];
-    }
+  for (let index = 0; index < endpoints.length; index++) {
+    const apiUrl = endpoints[index];
+    const isLastEndpoint = index === endpoints.length - 1;
 
-    console.log(`Successfully fetched ${data.length} cars from API`);
-    console.log('Raw API data sample:', data[0]);
-    const processedCars = data.map(car => {
-      const processed = forceUseUploadedImages(car);
-      console.log(`Car ${car.Title}: Original image=${car.image}, Processed image=${processed.image?.substring(0, 50)}...`);
-      return processed;
-    });
-    return processedCars;
-  } catch (error: any) {
-    console.error("Error fetching cars from API:", error);
-    
-    // Handle specific error types
-    if (error.name === 'AbortError') {
-      console.warn("Request was cancelled, returning empty array");
-    } else if (error.message?.includes('Failed to fetch')) {
-      console.warn("Network error, returning empty array");
-    } else {
-      console.warn("Unknown error, returning empty array");
-    }
-    
-    return [];
-  }
-};
-
-// Helper function to get cars from localStorage only
-const getLocalCars = () => {
-  try {
-    // Get cars from localStorage only
-    const localCars = JSON.parse(localStorage.getItem('uploadedCars') || '[]');
-    console.log(`🚗 Found ${localCars.length} cars in localStorage`);
-    return updateCarsImages(localCars);
-  } catch (error) {
-    console.error("Error getting local cars:", error);
-    
-    // If localStorage is corrupted, try to clear it
     try {
-      localStorage.removeItem('uploadedCars');
-      console.log('Cleared corrupted localStorage data');
-    } catch (clearError) {
-      console.warn('Failed to clear localStorage:', clearError);
+      const response = await fetch(`${apiUrl}/summaries`);
+
+      if (response.ok) {
+        return response.json();
+      }
+
+      if (!isLastEndpoint) {
+        continue;
+      }
+
+      throw new Error(`Failed to fetch car summaries: ${response.status}`);
+    } catch (error) {
+      if (error instanceof TypeError || (error instanceof Error && error.message.includes("fetch"))) {
+        lastError = buildConnectionError(apiUrl, !isLastEndpoint);
+        if (!isLastEndpoint) {
+          continue;
+        }
+        return [];
+      }
+
+      if (error instanceof Error) {
+        lastError = error;
+        if (!isLastEndpoint) {
+          continue;
+        }
+        throw error;
+      }
+
+      lastError = new Error("Unknown error occurred");
     }
-    
+  }
+
+  console.warn("Could not fetch car summaries:", lastError?.message);
+  return [];
+};
+
+export const searchCars = async (filters: SearchFilters): Promise<SearchResponse> => {
+  const params = new URLSearchParams();
+
+  if (filters.query) params.append("query", filters.query);
+  if (filters.fuelType) params.append("fuelType", filters.fuelType);
+  if (filters.transmission) params.append("transmission", filters.transmission);
+  if (filters.minYear) params.append("minYear", filters.minYear.toString());
+  if (filters.maxYear) params.append("maxYear", filters.maxYear.toString());
+  if (filters.minMileage) params.append("minMileage", filters.minMileage.toString());
+  if (filters.maxMileage) params.append("maxMileage", filters.maxMileage.toString());
+  if (filters.minPrice) params.append("minPrice", filters.minPrice.toString());
+  if (filters.maxPrice) params.append("maxPrice", filters.maxPrice.toString());
+  if (filters.location) params.append("location", filters.location);
+  if (filters.skip) params.append("skip", filters.skip.toString());
+  if (filters.limit) params.append("limit", filters.limit.toString());
+
+  let lastError: Error | null = null;
+  const endpoints = getApiEndpoints();
+
+  for (let index = 0; index < endpoints.length; index++) {
+    const apiUrl = endpoints[index];
+    const isLastEndpoint = index === endpoints.length - 1;
+
+    try {
+      const response = await fetch(`${apiUrl}/search?${params.toString()}`);
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data && typeof data === "object") {
+          return {
+            results: Array.isArray(data.results) ? data.results : [],
+            total: typeof data.total === "number" ? data.total : 0,
+            query: data.query,
+            filters: data.filters || filters,
+          };
+        }
+
+        return {
+          results: [],
+          total: 0,
+          query: filters.query,
+          filters: filters,
+        };
+      }
+
+      throw new Error(`Failed to search cars: ${response.status}`);
+    } catch (error) {
+      if (error instanceof TypeError || (error instanceof Error && error.message.includes("fetch"))) {
+        lastError = buildConnectionError(apiUrl, !isLastEndpoint);
+        if (!isLastEndpoint) {
+          continue;
+        }
+        break;
+      }
+
+      if (error instanceof Error) {
+        lastError = error;
+        if (!isLastEndpoint) {
+          continue;
+        }
+        throw error;
+      }
+
+      lastError = new Error("Unknown error occurred");
+    }
+  }
+
+  console.warn("Returning empty results due to errors", lastError?.message);
+  return {
+    results: [],
+    total: 0,
+    query: filters.query,
+    filters: filters,
+  };
+};
+
+export const getSuggestions = async (query: string, limit: number = 10): Promise<string[]> => {
+  if (!query || query.length < 2) {
     return [];
   }
+
+  const params = new URLSearchParams();
+  params.append("query", query);
+  params.append("limit", limit.toString());
+
+  let lastError: Error | null = null;
+  const endpoints = getApiEndpoints();
+
+  for (let index = 0; index < endpoints.length; index++) {
+    const apiUrl = endpoints[index];
+    const isLastEndpoint = index === endpoints.length - 1;
+
+    try {
+      const response = await fetch(`${apiUrl}/suggestions?${params.toString()}`);
+
+      if (response.ok) {
+        return await response.json();
+      }
+
+      throw new Error(`Failed to get suggestions: ${response.status}`);
+    } catch (error) {
+      if (error instanceof TypeError || (error instanceof Error && error.message.includes("fetch"))) {
+        lastError = buildConnectionError(apiUrl, !isLastEndpoint);
+        if (!isLastEndpoint) {
+          continue;
+        }
+        break;
+      }
+
+      if (error instanceof Error) {
+        lastError = error;
+        if (!isLastEndpoint) {
+          continue;
+        }
+        throw error;
+      }
+
+      lastError = new Error("Unknown error occurred");
+    }
+  }
+
+  console.warn("Returning empty suggestions due to errors", lastError?.message);
+  return [];
 };
+

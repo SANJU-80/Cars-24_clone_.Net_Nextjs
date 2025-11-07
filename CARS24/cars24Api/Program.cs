@@ -1,23 +1,31 @@
 using MongoDB.Driver;
-using Cars24Api.Services;
+using cars24Api.Services;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting; 
+
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
 
 builder.Services.AddOpenApi();
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
-string connectionstring = builder.Configuration.GetConnectionString("Cars24DB");
+string? connectionstring = builder.Configuration.GetConnectionString("Cars24DB");
+if (string.IsNullOrEmpty(connectionstring))
+    throw new InvalidOperationException("Connection string 'Cars24DB' is not configured.");
 var client = new MongoClient(connectionstring);
 var database = client.GetDatabase("cars24");
 
+// Register MongoDB database as a service
+builder.Services.AddSingleton<IMongoDatabase>(provider => database);
+
+// Register services with proper dependency injection
 builder.Services.AddSingleton<UserService>();
 builder.Services.AddSingleton<CarService>();
 builder.Services.AddSingleton<BookingService>();
 builder.Services.AddSingleton<AppointmentService>();
-builder.Services.AddSingleton<MaintenanceService>(provider => new MaintenanceService(database));
-builder.Services.AddSingleton<NotificationService>(provider => new NotificationService(database, builder.Configuration));
-builder.Services.AddSingleton<PricingService>(provider => new PricingService(database));
+builder.Services.AddSingleton<NotificationService>();
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
@@ -28,21 +36,30 @@ builder.Services.AddCors(options =>
     });
     options.AddPolicy("AllowNextApp", policy =>
     {
-        // Allow your frontend to connect
-        policy.WithOrigins("http://localhost:3000")
+        policy.WithOrigins("http://localhost:3000", "https://localhost:3000")
               .AllowAnyHeader()
               .AllowAnyMethod();
     });
 });
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
 }
 
 app.UseHttpsRedirection();
+
+// Use AllowAll CORS in development to avoid CORS issues
+if (app.Environment.IsDevelopment())
+{
+    app.UseCors("AllowAll");
+}
+else
+{
+    app.UseCors("AllowNextApp");
+}
+
 app.MapGet("/", () => "Welcome to Cars24 API");
 app.MapGet("/db-check", async () =>
 {
@@ -57,7 +74,6 @@ app.MapGet("/db-check", async () =>
         return Results.Problem($"Mongodb connection failed:{ex.Message}");
     }
 });
-app.UseCors("AllowNextApp");
 
 app.UseAuthorization();
 

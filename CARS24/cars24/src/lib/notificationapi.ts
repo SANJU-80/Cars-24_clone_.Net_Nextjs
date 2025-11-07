@@ -1,341 +1,11 @@
-// NOTIFICATION API - COMPLETELY REWRITTEN TO FIX BROWSER CACHE ISSUES
-// Version: 2.0.0 - All functions rewritten with proper error handling
-// Date: 2024-01-09 - Cache buster update
-
-const BASE_URL = "https://cars-24-clone-net-nextjs-vypo.onrender.com/api/Notification";
-
-// Fallback data for when API is not available - Updated v3 - Cache Buster
-// Version: 1.0.3 - Fixed all API errors with fallback data
-const DEFAULT_USER_PREFERENCES: UserNotificationPreferences = {
-  userId: "",
-  emailNotifications: true,
-  pushNotifications: true,
-  smsNotifications: false,
-  notificationTypes: {
-    appointmentConfirmations: true,
-    appointmentReminders: true,
-    bidUpdates: true,
-    priceDrops: true,
-    newMessages: true,
-    maintenanceReminders: true,
-    serviceAlerts: true,
-    promotionalOffers: false
-  },
-  quietHours: {
-    enabled: false,
-    startTime: "22:00",
-    endTime: "08:00",
-    timezone: "Asia/Kolkata"
-  },
-  digestMode: {
-    enabled: false,
-    frequency: "daily",
-    time: "09:00"
-  },
-  priorityLevels: {
-    high: true,
-    medium: true,
-    low: false
-  },
-  deliveryMethods: {
-    inApp: true,
-    push: true,
-    email: true,
-    sms: false
-  },
-  updatedAt: new Date().toISOString()
-};
-
-export type Notification = {
-  id?: string;
-  userId: string;
-  title: string;
-  body: string;
-  type: string;
-  priority: string;
-  relatedEntityId?: string;
-  relatedEntityType?: string;
-  data: Record<string, string>;
-  imageUrl?: string;
-  actionUrl?: string;
-  isRead: boolean;
-  isDelivered: boolean;
-  isClicked: boolean;
-  createdAt: string;
-  readAt?: string;
-  deliveredAt?: string;
-  clickedAt?: string;
-  expiresAt?: string;
-};
-
-export type UserNotificationPreferences = {
-  id?: string;
-  userId: string;
-  appointmentNotifications: boolean;
-  bidUpdateNotifications: boolean;
-  priceDropNotifications: boolean;
-  messageNotifications: boolean;
-  systemNotifications: boolean;
-  marketingNotifications: boolean;
-  pushNotifications: boolean;
-  emailNotifications: boolean;
-  smsNotifications: boolean;
-  quietHoursEnabled: boolean;
-  quietHoursStart: string;
-  quietHoursEnd: string;
-  quietDays: number[];
-  digestNotifications: boolean;
-  digestFrequencyHours: number;
-  createdAt: string;
-  updatedAt: string;
-};
-
-export type NotificationRequest = {
-  userId: string;
-  type: string;
-  title: string;
-  body: string;
-  priority?: string;
-  relatedEntityId?: string;
-  relatedEntityType?: string;
-  data?: Record<string, string>;
-  imageUrl?: string;
-  actionUrl?: string;
-  expiresAt?: string;
-};
-
-export type FCMTokenRequest = {
-  userId: string;
-  token: string;
-  deviceType?: string;
-  deviceId?: string;
-  userAgent?: string;
-};
-
-export type AppointmentConfirmationRequest = {
-  userId: string;
-  carTitle: string;
-  appointmentDate: string;
-  appointmentTime: string;
-  appointmentId: string;
-};
-
-export type PriceDropRequest = {
-  userId: string;
-  carTitle: string;
-  oldPrice: number;
-  newPrice: number;
-  carId: string;
-};
-
-export type BidUpdateRequest = {
-  userId: string;
-  bidAmount: number;
-  carTitle: string;
-  bidStatus: string;
-  carId: string;
-};
-
-// Send a notification
-export const sendNotification = async (request: NotificationRequest): Promise<Notification> => {
-  try {
-    const response = await fetch(`${BASE_URL}/send`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(request),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || `HTTP ${response.status}`);
-    }
-
-    return await response.json();
-  } catch (error: any) {
-    console.error("Send notification error:", error);
-    throw new Error(`Failed to send notification: ${error.message}`);
-  }
-};
-
-// Get user notifications - REWRITTEN TO FIX CACHE ISSUES
-export const getUserNotifications = async (
-  userId: string, 
-  page: number = 1, 
-  pageSize: number = 20
-): Promise<Notification[]> => {
-  console.log("getUserNotifications called for user:", userId, "page:", page, "pageSize:", pageSize);
-  
-  try {
-    const url = `${BASE_URL}/user/${userId}?page=${page}&pageSize=${pageSize}`;
-    console.log("Fetching notifications from URL:", url);
-    
-    const response = await fetch(url);
-    
-    if (!response.ok) {
-      console.log("Response not OK, status:", response.status);
-      // Return empty array instead of throwing error
-      console.warn("API not available, using empty notifications list");
-      return [];
-    }
-
-    const data = await response.json();
-    console.log("Successfully fetched notifications:", data.length, "items");
-    return data;
-  } catch (error: any) {
-    console.error("Get notifications error:", error);
-    console.warn("Using empty notifications list due to error");
-    return [];
-  }
-};
-
-// Get unread count - REWRITTEN TO FIX CACHE ISSUES
-export const getUnreadCount = async (userId: string): Promise<number> => {
-  console.log("getUnreadCount called for user:", userId);
-  
-  try {
-    const url = `${BASE_URL}/user/${userId}/unread-count`;
-    console.log("Fetching unread count from URL:", url);
-    
-    const response = await fetch(url);
-    
-    if (!response.ok) {
-      console.log("Response not OK, status:", response.status);
-      // Return 0 instead of throwing error
-      console.warn("API not available, using default unread count of 0");
-      return 0;
-    }
-
-    const data = await response.json();
-    console.log("Successfully fetched unread count:", data);
-    return data;
-  } catch (error: any) {
-    console.error("Get unread count error:", error);
-    console.warn("Using default unread count of 0 due to error");
-    return 0;
-  }
-};
-
-// Mark notification as read
-export const markAsRead = async (notificationId: string, userId: string): Promise<Notification> => {
-  try {
-    const response = await fetch(`${BASE_URL}/${notificationId}/read?userId=${userId}`, {
-      method: "PUT",
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || `HTTP ${response.status}`);
-    }
-
-    return await response.json();
-  } catch (error: any) {
-    console.error("Mark as read error:", error);
-    throw new Error(`Failed to mark as read: ${error.message}`);
-  }
-};
-
-// Mark notification as clicked
-export const markAsClicked = async (notificationId: string, userId: string): Promise<Notification> => {
-  try {
-    const response = await fetch(`${BASE_URL}/${notificationId}/clicked?userId=${userId}`, {
-      method: "PUT",
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || `HTTP ${response.status}`);
-    }
-
-    return await response.json();
-  } catch (error: any) {
-    console.error("Mark as clicked error:", error);
-    throw new Error(`Failed to mark as clicked: ${error.message}`);
-  }
-};
-
-// Get user preferences - REWRITTEN TO FIX CACHE ISSUES
-export const getUserPreferences = async (userId: string): Promise<UserNotificationPreferences> => {
-  console.log("getUserPreferences called for user:", userId);
-  
-  try {
-    const url = `${BASE_URL}/preferences/${userId}`;
-    console.log("Fetching from URL:", url);
-    
-    const response = await fetch(url);
-    
-    if (!response.ok) {
-      console.log("Response not OK, status:", response.status);
-      // Return fallback data instead of throwing error
-      console.warn("API not available, using default preferences");
-      return { ...DEFAULT_USER_PREFERENCES, userId };
-    }
-
-    const data = await response.json();
-    console.log("Successfully fetched preferences:", data);
-    return data;
-  } catch (error: any) {
-    console.error("Get preferences error:", error);
-    console.warn("Using default notification preferences due to error");
-    return { ...DEFAULT_USER_PREFERENCES, userId };
-  }
-};
-
-// Update user preferences
-export const updateUserPreferences = async (
-  userId: string, 
-  preferences: UserNotificationPreferences
-): Promise<UserNotificationPreferences> => {
-  try {
-    const response = await fetch(`${BASE_URL}/preferences/${userId}`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(preferences),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || `HTTP ${response.status}`);
-    }
-
-    return await response.json();
-  } catch (error: any) {
-    console.error("Update preferences error:", error);
-    throw new Error(`Failed to update preferences: ${error.message}`);
-  }
-};
+const BASE_URL = "https://cars-24-clone-net-nextjs.onrender.com/api/Notification";
+const LOCAL_URL = "http://localhost:5092/api/Notification";
 
 // Register FCM token
-export const registerFCMToken = async (request: FCMTokenRequest): Promise<{ tokenId: string }> => {
+export const registerFCMToken = async (userId: string, token: string) => {
   try {
-    const response = await fetch(`${BASE_URL}/fcm-token`, {
+    const response = await fetch(`${BASE_URL}/register-token?userId=${userId}`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(request),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || `HTTP ${response.status}`);
-    }
-
-    return await response.json();
-  } catch (error: any) {
-    console.error("Register FCM token error:", error);
-    throw new Error(`Failed to register FCM token: ${error.message}`);
-  }
-};
-
-// Unregister FCM token
-export const unregisterFCMToken = async (token: string): Promise<void> => {
-  try {
-    const response = await fetch(`${BASE_URL}/fcm-token`, {
-      method: "DELETE",
       headers: {
         "Content-Type": "application/json",
       },
@@ -343,80 +13,293 @@ export const unregisterFCMToken = async (token: string): Promise<void> => {
     });
 
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || `HTTP ${response.status}`);
+      // Try localhost if base URL fails (only in development)
+      if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+        const localResponse = await fetch(`${LOCAL_URL}/register-token?userId=${userId}`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ token }),
+        });
+        if (localResponse.ok) {
+          return await localResponse.json();
+        }
+      }
+      throw new Error(`Failed to register token: ${response.status}`);
     }
-  } catch (error: any) {
-    console.error("Unregister FCM token error:", error);
-    throw new Error(`Failed to unregister FCM token: ${error.message}`);
+
+    return await response.json();
+  } catch (error) {
+    console.error("Error registering FCM token:", error);
+    throw error;
   }
 };
 
-// Send appointment confirmation
-export const sendAppointmentConfirmation = async (request: AppointmentConfirmationRequest): Promise<Notification> => {
+// Remove FCM token
+export const removeFCMToken = async (userId: string, token: string) => {
   try {
-    const response = await fetch(`${BASE_URL}/appointment-confirmation`, {
+    const response = await fetch(`${BASE_URL}/remove-token?userId=${userId}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(request),
+      body: JSON.stringify({ token }),
     });
 
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || `HTTP ${response.status}`);
+      if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+        const localResponse = await fetch(`${LOCAL_URL}/remove-token?userId=${userId}`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ token }),
+        });
+        if (localResponse.ok) {
+          return await localResponse.json();
+        }
+      }
+      throw new Error(`Failed to remove token: ${response.status}`);
     }
 
     return await response.json();
-  } catch (error: any) {
-    console.error("Send appointment confirmation error:", error);
-    throw new Error(`Failed to send appointment confirmation: ${error.message}`);
+  } catch (error) {
+    console.error("Error removing FCM token:", error);
+    throw error;
   }
 };
 
-// Send price drop notification
-export const sendPriceDropNotification = async (request: PriceDropRequest): Promise<Notification> => {
+// Get user notifications
+export const getUserNotifications = async (userId: string, limit: number = 50) => {
+  let lastError: Error | null = null;
+  
+  for (const apiUrl of [BASE_URL, LOCAL_URL]) {
+    try {
+      const response = await fetch(`${apiUrl}/user/${userId}?limit=${limit}`);
+      if (response.ok) {
+        return await response.json();
+      }
+      // If response is not ok, try next URL
+      if (apiUrl === BASE_URL && typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+        continue;
+      }
+      throw new Error(`Failed to fetch notifications: ${response.status}`);
+    } catch (error) {
+      // Check if it's a network/fetch error
+      if (error instanceof TypeError || (error instanceof Error && error.message.includes('fetch'))) {
+        lastError = new Error(
+          apiUrl === BASE_URL 
+            ? "Cannot reach Render API. Trying local backend..." 
+            : "Cannot connect to backend. Please make sure your .NET backend is running on http://localhost:5092"
+        );
+        // If this was the Render API, try localhost next
+        if (apiUrl === BASE_URL && typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+          continue;
+        }
+        // If localhost also failed, return empty array
+        return [];
+      }
+      // If it's a different error, throw it immediately
+      if (error instanceof Error) {
+        throw error;
+      }
+      lastError = error instanceof Error ? error : new Error("Unknown error occurred");
+    }
+  }
+  
+  // If we get here, both APIs failed - return empty array
+  console.warn("Could not fetch notifications, returning empty array:", lastError?.message);
+  return [];
+};
+
+// Get unread count
+export const getUnreadCount = async (userId: string) => {
+  let lastError: Error | null = null;
+  
+  for (const apiUrl of [BASE_URL, LOCAL_URL]) {
+    try {
+      const response = await fetch(`${apiUrl}/user/${userId}/unread-count`);
+      if (response.ok) {
+        return await response.json();
+      }
+      // If response is not ok, try next URL
+      if (apiUrl === BASE_URL && typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+        continue;
+      }
+      throw new Error(`Failed to fetch unread count: ${response.status}`);
+    } catch (error) {
+      // Check if it's a network/fetch error
+      if (error instanceof TypeError || (error instanceof Error && error.message.includes('fetch'))) {
+        lastError = new Error(
+          apiUrl === BASE_URL 
+            ? "Cannot reach Render API. Trying local backend..." 
+            : "Cannot connect to backend. Please make sure your .NET backend is running on http://localhost:5092"
+        );
+        // If this was the Render API, try localhost next
+        if (apiUrl === BASE_URL && typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+          continue;
+        }
+        // If localhost also failed, return default
+        return { count: 0 };
+      }
+      // If it's a different error, throw it immediately
+      if (error instanceof Error) {
+        throw error;
+      }
+      lastError = error instanceof Error ? error : new Error("Unknown error occurred");
+    }
+  }
+  
+  // If we get here, both APIs failed - return default
+  console.warn("Could not fetch unread count, returning default:", lastError?.message);
+  return { count: 0 };
+};
+
+// Mark notification as read
+export const markNotificationAsRead = async (notificationId: string, userId: string) => {
   try {
-    const response = await fetch(`${BASE_URL}/price-drop`, {
+    const response = await fetch(`${BASE_URL}/${notificationId}/read?userId=${userId}`, {
       method: "POST",
+    });
+    if (!response.ok) {
+      if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+        const localResponse = await fetch(`${LOCAL_URL}/${notificationId}/read?userId=${userId}`, {
+          method: "POST",
+        });
+        if (localResponse.ok) {
+          return await localResponse.json();
+        }
+      }
+      throw new Error(`Failed to mark as read: ${response.status}`);
+    }
+    return await response.json();
+  } catch (error) {
+    console.error("Error marking notification as read:", error);
+    throw error;
+  }
+};
+
+// Mark all notifications as read
+export const markAllNotificationsAsRead = async (userId: string) => {
+  try {
+    const response = await fetch(`${BASE_URL}/user/${userId}/read-all`, {
+      method: "POST",
+    });
+    if (!response.ok) {
+      if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+        const localResponse = await fetch(`${LOCAL_URL}/user/${userId}/read-all`, {
+          method: "POST",
+        });
+        if (localResponse.ok) {
+          return await localResponse.json();
+        }
+      }
+      throw new Error(`Failed to mark all as read: ${response.status}`);
+    }
+    return await response.json();
+  } catch (error) {
+    console.error("Error marking all as read:", error);
+    throw error;
+  }
+};
+
+// Get notification preferences
+export const getNotificationPreferences = async (userId: string) => {
+  let lastError: Error | null = null;
+  
+  for (const apiUrl of [BASE_URL, LOCAL_URL]) {
+    try {
+      const response = await fetch(`${apiUrl}/user/${userId}/preferences`);
+      if (response.ok) {
+        return await response.json();
+      }
+      // If response is not ok, try next URL
+      if (apiUrl === BASE_URL && typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+        continue;
+      }
+      throw new Error(`Failed to fetch preferences: ${response.status}`);
+    } catch (error) {
+      // Check if it's a network/fetch error
+      if (error instanceof TypeError || (error instanceof Error && error.message.includes('fetch'))) {
+        lastError = new Error(
+          apiUrl === BASE_URL 
+            ? "Cannot reach Render API. Trying local backend..." 
+            : "Cannot connect to backend. Please make sure your .NET backend is running on http://localhost:5092"
+        );
+        // If this was the Render API, try localhost next
+        if (apiUrl === BASE_URL && typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+          continue;
+        }
+        // If localhost also failed, return default preferences
+        return {
+          appointmentConfirmations: true,
+          bidUpdates: true,
+          priceDrops: true,
+          newMessages: true,
+          emailNotifications: true,
+          pushNotifications: true
+        };
+      }
+      // If it's a different error, throw it immediately
+      if (error instanceof Error) {
+        throw error;
+      }
+      lastError = error instanceof Error ? error : new Error("Unknown error occurred");
+    }
+  }
+  
+  // If we get here, both APIs failed - return default preferences
+  console.warn("Could not fetch preferences, returning defaults:", lastError?.message);
+  return {
+    appointmentConfirmations: true,
+    bidUpdates: true,
+    priceDrops: true,
+    newMessages: true,
+    emailNotifications: true,
+    pushNotifications: true
+  };
+};
+
+// Update notification preferences
+export const updateNotificationPreferences = async (
+  userId: string,
+  preferences: {
+    appointmentConfirmations?: boolean;
+    bidUpdates?: boolean;
+    priceDrops?: boolean;
+    newMessages?: boolean;
+    emailNotifications?: boolean;
+    pushNotifications?: boolean;
+  }
+) => {
+  try {
+    const response = await fetch(`${BASE_URL}/user/${userId}/preferences`, {
+      method: "PUT",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(request),
+      body: JSON.stringify(preferences),
     });
-
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || `HTTP ${response.status}`);
+      if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+        const localResponse = await fetch(`${LOCAL_URL}/user/${userId}/preferences`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(preferences),
+        });
+        if (localResponse.ok) {
+          return await localResponse.json();
+        }
+      }
+      throw new Error(`Failed to update preferences: ${response.status}`);
     }
-
     return await response.json();
-  } catch (error: any) {
-    console.error("Send price drop notification error:", error);
-    throw new Error(`Failed to send price drop notification: ${error.message}`);
+  } catch (error) {
+    console.error("Error updating preferences:", error);
+    throw error;
   }
 };
 
-// Send bid update notification
-export const sendBidUpdateNotification = async (request: BidUpdateRequest): Promise<Notification> => {
-  try {
-    const response = await fetch(`${BASE_URL}/bid-update`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(request),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || `HTTP ${response.status}`);
-    }
-
-    return await response.json();
-  } catch (error: any) {
-    console.error("Send bid update notification error:", error);
-    throw new Error(`Failed to send bid update notification: ${error.message}`);
-  }
-};

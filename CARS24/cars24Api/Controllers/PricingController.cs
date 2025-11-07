@@ -1,8 +1,8 @@
-using Cars24Api.Models;
-using Cars24Api.Services;
+using cars24Api.Models;
+using cars24Api.Services;
 using Microsoft.AspNetCore.Mvc;
 
-namespace Cars24Api.Controllers;
+namespace cars24Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
@@ -338,7 +338,7 @@ public class PricingController : ControllerBase
         }
     }
 
-    private async Task<string> DetectRegionFromLocationAsync(string userLocation)
+    private Task<string> DetectRegionFromLocationAsync(string userLocation)
     {
         // Simple location to region mapping
         // In a real implementation, you would use a geocoding service
@@ -359,14 +359,14 @@ public class PricingController : ControllerBase
         {
             if (userLocation.Contains(mapping.Key, StringComparison.OrdinalIgnoreCase))
             {
-                return mapping.Value;
+                return Task.FromResult(mapping.Value);
             }
         }
 
-        return "Mumbai"; // Default fallback
+        return Task.FromResult("Mumbai"); // Default fallback
     }
 
-    private async Task<List<PriceTrendData>> GeneratePriceTrendDataAsync(
+    private Task<List<PriceTrendData>> GeneratePriceTrendDataAsync(
         string region, 
         string? vehicleType, 
         string? brand, 
@@ -393,13 +393,13 @@ public class PricingController : ControllerBase
             });
         }
 
-        return trends;
+        return Task.FromResult(trends);
     }
 
-    private async Task<MarketInsights> GenerateMarketInsightsAsync(string region)
+    private Task<MarketInsights> GenerateMarketInsightsAsync(string region)
     {
         // Simulate market insights generation
-        return new MarketInsights
+        var insights = new MarketInsights
         {
             Region = region,
             OverallTrend = "Rising",
@@ -421,6 +421,8 @@ public class PricingController : ControllerBase
             },
             GeneratedAt = DateTime.UtcNow
         };
+
+        return Task.FromResult(insights);
     }
 }
 

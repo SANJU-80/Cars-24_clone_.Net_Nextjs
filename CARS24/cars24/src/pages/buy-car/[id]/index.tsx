@@ -2,8 +2,6 @@ import { Input } from "@/components/ui/input";
 import { useAuth } from "@/context/AuthContext";
 import { createBooking } from "@/lib/Bookingapi";
 import { getcarByid } from "@/lib/Carapi";
-import MaintenanceDashboard from "@/components/MaintenanceDashboard";
-import PricingEngine from "@/components/PricingEngine";
 import {
   AlertCircle,
   Calendar,
@@ -12,12 +10,50 @@ import {
   MapPin,
   Phone,
   User,
+  Mail,
 } from "lucide-react";
 import { useRouter } from "next/router";
 import React, { useEffect, useState } from "react";
 import { toast } from "sonner";
-// No hardcoded car data - all data comes from API
+const carDetails = {
+  id: "fronx-2023",
+  title: "2023 Maruti FRONX DELTA PLUS 1.2L AGS",
+  images: [
+    "https://images.pexels.com/photos/170811/pexels-photo-170811.jpeg",
+    "https://images.pexels.com/photos/116675/pexels-photo-116675.jpeg",
+    "https://images.pexels.com/photos/3729464/pexels-photo-3729464.jpeg",
+  ],
+  price: "₹7.80 lakh",
+  emi: "₹15,245/month",
+  location: "Metro Walk, Rohini, New Delhi",
+  specs: {
+    year: 2023,
+    km: "10,048",
+    fuel: "Petrol",
+    transmission: "Automatic",
+    owner: "1st owner",
+    insurance: "Valid till 2024",
+  },
+  features: [
+    "Power Steering",
+    "Power Windows",
+    "Air Conditioning",
+    "Driver Airbag",
+    "Passenger Airbag",
+    "Alloy Wheels",
+  ],
+  highlights: [
+    "Single owner vehicle",
+    "All original documents",
+    "Non-accidental",
+    "Fully maintained",
+  ],
+};
 const index = () => {
+  // All hooks must be called at the top level, before any conditional returns
+  const router = useRouter();
+  const { id } = router.query;
+  const { user } = useAuth();
   const [formData, setformData] = useState({
     name: "",
     phone: "",
@@ -29,42 +65,34 @@ const index = () => {
     loanRequired: "no",
     downPayment: "",
   });
-  const router = useRouter();
-  const { id } = router.query;
   const [carDetails, setcarDetails] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [step, setstep] = useState(1);
-  const [showMaintenance, setShowMaintenance] = useState(false);
-  const [showPricing, setShowPricing] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
   useEffect(() => {
     if (!id) return;
     async function fetchCar() {
       try {
         const data = await getcarByid(id as string);
-        setcarDetails(data);
+        console.log("Car data received:", data);
+        if (data && (data.Id || data.id || data.Title || data.title)) {
+          setcarDetails(data);
+        } else {
+          console.error("Invalid car data received:", data);
+          setcarDetails(null);
+        }
       } catch (error) {
-        console.error(error);
+        console.error("Error fetching car:", error);
+        setcarDetails(null);
+        toast.error(error instanceof Error ? error.message : "Failed to load car details");
       } finally {
         setLoading(false);
       }
     }
     fetchCar();
   }, [id]);
-
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center min-h-screen">
-        <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-gray-900" />
-      </div>
-    );
-  }
-  if (!carDetails) {
-    return (
-      <div className="text-center mt-10 text-red-500">
-        Car details not found.
-      </div>
-    );
-  }
+  
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
@@ -74,32 +102,115 @@ const index = () => {
       [name]: value,
     }));
   };
-  const { user } = useAuth();
+  
+  // Conditional returns must come after all hooks
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center min-h-screen bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-600 mx-auto mb-4" />
+          <p className="text-gray-600">Loading car details...</p>
+        </div>
+      </div>
+    );
+  }
+  
+  if (!carDetails) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-red-500 text-xl font-semibold mb-2">
+            Car details not found.
+          </div>
+          <p className="text-gray-600 mb-4">The car you're looking for doesn't exist or has been removed.</p>
+          <button
+            onClick={() => router.push('/buy-car')}
+            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          >
+            Browse All Cars
+          </button>
+        </div>
+      </div>
+    );
+  }
+  
   const handlesubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
     if (!user) {
-      toast.error("Pleasde login to continue");
+      toast.error("Please login to continue");
+      router.push('/login');
       return;
     }
+    
+    // Validate all required fields
+    if (!formData.name || !formData.phone || !formData.email) {
+      toast.error("Please fill in all required personal information");
+      setstep(1);
+      return;
+    }
+    
+    if (!formData.preferredDate || !formData.preferredTime || !formData.address) {
+      toast.error("Please fill in all visit details");
+      setstep(2);
+      return;
+    }
+    
+    if (!formData.paymentMethod) {
+      toast.error("Please select a payment method");
+      return;
+    }
+    
+    // Validate date is in the future
+    const selectedDate = new Date(formData.preferredDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    selectedDate.setHours(0, 0, 0, 0);
+    if (selectedDate < today) {
+      toast.error("Please select a future date for your visit");
+      setstep(2);
+      return;
+    }
+    
+    setIsSubmitting(true);
+    
     try {
+      // Format booking data to match backend model (PascalCase)
       const booking = {
-        CarId: id,
-        name: formData.name,
-        phone: formData.phone,
-        email: formData.email,
-        address: formData.address,
-        preferredDate: formData.preferredDate,
-        preferredTime: formData.preferredTime,
-        paymentMethod: formData.paymentMethod,
-        loanRequired: formData.loanRequired,
-        downPayment: formData.downPayment,
+        CarId: id as string,
+        Name: formData.name,
+        Phone: formData.phone,
+        Email: formData.email,
+        Address: formData.address,
+        PreferredDate: formData.preferredDate,
+        PreferredTime: formData.preferredTime,
+        PaymentMethod: formData.paymentMethod,
+        LoanRequired: formData.paymentMethod === "loan" ? "yes" : "no",
+        DownPayment: formData.downPayment || "",
       };
+      
+      console.log("Submitting booking:", booking);
+      console.log("User ID:", user.id);
+      
       const response = await createBooking(user.id, booking);
-      if (response.id) {
-        toast.success("Bookings listed Successfully");
-        router.push(`/bookings`);
+      
+      console.log("Booking response:", response);
+      
+      if (response && (response.Id || response.id)) {
+        toast.success("Booking created successfully! Redirecting to your bookings...");
+        setTimeout(() => {
+          router.push(`/bookings`);
+        }, 1500);
+      } else {
+        throw new Error("Booking creation failed - no ID returned");
       }
-    } catch (error) {}
+    } catch (error: any) {
+      console.error("Error creating booking:", error);
+      const errorMessage = error?.message || error?.response?.data?.message || "Failed to create booking. Please try again.";
+      toast.error(errorMessage);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const validatestep = () => {
@@ -107,7 +218,19 @@ const index = () => {
       return formData.name && formData.phone && formData.email;
     }
     if (step === 2) {
-      return formData.preferredDate && formData.preferredTime;
+      if (!formData.preferredDate || !formData.preferredTime) {
+        return false;
+      }
+      // Validate that the date is in the future
+      const selectedDate = new Date(formData.preferredDate);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      selectedDate.setHours(0, 0, 0, 0);
+      if (selectedDate < today) {
+        toast.error("Please select a future date");
+        return false;
+      }
+      return true;
     }
     return true;
   };
@@ -120,161 +243,95 @@ const index = () => {
     "4:00 PM",
   ];
 
+  // Transform car data to handle different API response formats
+  const carImage = Array.isArray(carDetails.Images) 
+    ? carDetails.Images[0] || carDetails.images?.[0] || ""
+    : Array.isArray(carDetails.images)
+    ? carDetails.images[0] || ""
+    : carDetails.image || carDetails.Images || "";
+  
+  const carTitle = carDetails.Title || carDetails.title || "Car";
+  const carId = carDetails.Id || carDetails.id || "";
+  const carPrice = carDetails.Price || carDetails.price || "0";
+  const carEmi = carDetails.Emi || carDetails.emi || "0";
+  const carLocation = carDetails.Location || carDetails.location || "Location not specified";
+  const carKm = carDetails.Specs?.Km || carDetails.specs?.km || carDetails.km || "0";
+  const carYear = carDetails.Specs?.Year || carDetails.specs?.year || "";
+  const carFuel = carDetails.Specs?.Fuel || carDetails.specs?.fuel || "";
+  const carTransmission = carDetails.Specs?.Transmission || carDetails.specs?.transmission || "";
+  const carOwner = carDetails.Specs?.Owner || carDetails.specs?.owner || "";
+
   return (
     <div className="min-h-screen bg-gray-50 text-black">
       <main className="container mx-auto px-4 py-8">
         <div className="max-w-7xl mx-auto">
-          {showMaintenance && (
-            <div className="mb-8">
-              <MaintenanceDashboard
-                carId={id as string}
-                carData={{
-                  title: carDetails.title,
-                  brand: carDetails.title.split(' ')[1] || 'Unknown', // Extract brand from title
-                  model: carDetails.title.split(' ')[2] || 'Unknown', // Extract model from title
-                  year: carDetails.specs?.year || new Date().getFullYear(),
-                  mileage: parseInt((carDetails.specs?.km || '0').replace(/,/g, '')) || 0,
-                  condition: 'Good' // Default condition
-                }}
-              />
-            </div>
-          )}
-          
-          {showPricing && carDetails && (
-            <div className="mb-8">
-              <PricingEngine
-                carId={id as string}
-                basePrice={parseFloat((carDetails.price || '0').replace(/[₹,]/g, '')) * 100000} // Convert lakh to actual price
-                brand={carDetails.title.split(' ')[1] || 'Unknown'}
-                model={carDetails.title.split(' ')[2] || 'Unknown'}
-                vehicleType="Hatchback" // Default, should be extracted from car data
-                year={carDetails.specs?.year || new Date().getFullYear()}
-                mileage={parseInt((carDetails.specs?.km || '0').replace(/,/g, '')) || 0}
-                condition="Good" // Default condition
-                fuelType={carDetails.specs?.fuel || 'Petrol'}
-                transmission={carDetails.specs?.transmission || 'Manual'}
-              />
-            </div>
-          )}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             {/* Car Details Summary */}
             <div className="bg-white rounded-lg shadow-md p-6">
               {/* Car Image */}
-              <div className="mb-4">
+              <div className="mb-6">
                 <img
-                  src={carDetails.images?.[0] || carDetails.image || "https://images.pexels.com/photos/170811/pexels-photo-170811.jpeg"}
-                  alt={carDetails.title}
-                  className="w-full h-auto rounded-lg"
+                  src={carImage}
+                  alt={carTitle}
+                  className="w-full h-80 object-cover rounded-lg"
                 />
               </div>
 
-              {/* Title and Price */}
-              <h2 className="text-2xl font-bold mb-2">{carDetails.title}</h2>
-              <p className="text-sm text-gray-400 mb-4">ID: {carDetails.id}</p>
+              {/* Title and ID */}
+              <h2 className="text-3xl font-bold mb-2">{carTitle}</h2>
+              <p className="text-sm text-gray-500 mb-6">ID: {carId}</p>
 
-              <div className="flex justify-between items-center mb-4">
+              {/* Price and Location */}
+              <div className="flex justify-between items-start mb-6">
                 <div>
-                  <p className="text-3xl font-bold text-blue-600">
-                    {carDetails.price}
+                  <p className="text-4xl font-bold text-blue-600 mb-2">
+                    ₹{carPrice}
                   </p>
-                  <p className="text-gray-600">EMI from {carDetails.emi}</p>
+                  <p className="text-lg text-gray-700">EMI from ₹{carEmi}</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-gray-600">{carDetails.location}</p>
-                  <p className="text-sm text-gray-500">
-                    {carDetails.specs?.km || 'N/A'} driven
+                  <p className="text-lg text-gray-700">{carLocation}</p>
+                  <p className="text-sm text-gray-600">
+                    {carKm} driven
                   </p>
                 </div>
               </div>
-              {/* Specs Grid */}
-              <div className="grid grid-cols-2 gap-4 mb-6">
-                <div className="bg-gray-50 p-3 rounded-lg">
-                  <p className="text-gray-600">Year</p>
-                  <p className="font-medium">{carDetails.specs?.year || 'N/A'}</p>
-                </div>
-                <div className="bg-gray-50 p-3 rounded-lg">
-                  <p className="text-gray-600">Fuel Type</p>
-                  <p className="font-medium">{carDetails.specs?.fuel || 'N/A'}</p>
-                </div>
-                <div className="bg-gray-50 p-3 rounded-lg">
-                  <p className="text-gray-600">Transmission</p>
-                  <p className="font-medium">{carDetails.specs?.transmission || 'N/A'}</p>
-                </div>
-                <div className="bg-gray-50 p-3 rounded-lg">
-                  <p className="text-gray-600">Owner</p>
-                  <p className="font-medium">{carDetails.specs?.owner || 'N/A'}</p>
-                </div>
-                <div className="bg-gray-50 p-3 rounded-lg">
-                  <p className="text-gray-600">Insurance</p>
-                  <p className="font-medium">{carDetails.specs?.insurance || 'N/A'}</p>
-                </div>
-              </div>
-              {/* Highlights */}
-              <div className="bg-blue-50 p-4 rounded-lg mb-4">
-                <h3 className="font-semibold text-blue-800 mb-2">
-                  Car Highlights
-                </h3>
-                <ul className="space-y-1">
-                  {(carDetails.highlights || []).map((highlight: any, index: any) => (
-                    <li key={index} className="text-blue-700 flex items-center">
-                      <div className="w-2 h-2 bg-blue-700 rounded-full mr-2"></div>
-                      {highlight}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-              {/* Features */}
-              <div className="bg-gray-100 p-4 rounded-lg mb-4">
-                <h3 className="font-semibold text-gray-800 mb-2">Features</h3>
-                <ul className="list-disc list-inside space-y-1 text-gray-700">
-                  {(carDetails.features || []).map((feature: any, index: any) => (
-                    <li key={index}>{feature}</li>
-                  ))}
-                </ul>
-              </div>
 
-              {/* Maintenance Cost Button */}
-              <div className="bg-blue-50 p-4 rounded-lg mb-4">
-                <h3 className="font-semibold text-blue-800 mb-2">Maintenance Cost Estimator</h3>
-                <p className="text-sm text-blue-700 mb-3">
-                  Get detailed maintenance cost estimates and service predictions for this vehicle.
-                </p>
-                <button
-                  onClick={() => setShowMaintenance(!showMaintenance)}
-                  className="w-full py-2 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-                >
-                  {showMaintenance ? 'Hide Maintenance Details' : 'View Maintenance Costs'}
-                </button>
-              </div>
-
-              {/* Market Pricing Button */}
-              <div className="bg-green-50 p-4 rounded-lg">
-                <h3 className="font-semibold text-green-800 mb-2">Market Price Analysis</h3>
-                <p className="text-sm text-green-700 mb-3">
-                  Get AI-powered pricing recommendations based on market conditions, region, and season.
-                </p>
-                <button
-                  onClick={() => setShowPricing(!showPricing)}
-                  className="w-full py-2 px-4 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
-                >
-                  {showPricing ? 'Hide Price Analysis' : 'View Market Price'}
-                </button>
+              {/* Specs Grid - Only 4 boxes as shown in image */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                  <p className="text-sm text-gray-600 mb-1">Year</p>
+                  <p className="text-lg font-semibold text-gray-900">{carYear}</p>
+                </div>
+                <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                  <p className="text-sm text-gray-600 mb-1">Fuel Type</p>
+                  <p className="text-lg font-semibold text-gray-900">{carFuel}</p>
+                </div>
+                <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                  <p className="text-sm text-gray-600 mb-1">Transmission</p>
+                  <p className="text-lg font-semibold text-gray-900">{carTransmission}</p>
+                </div>
+                <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                  <p className="text-sm text-gray-600 mb-1">Owner</p>
+                  <p className="text-lg font-semibold text-gray-900">{carOwner}</p>
+                </div>
               </div>
             </div>
-            {/* booking form  */}
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <h2 className="text-2xl font-bold mb-6">
+            {/* Purchase Form */}
+            <div className="bg-white rounded-lg shadow-md p-8">
+              <h2 className="text-3xl font-bold mb-8">
                 Complete Your Purchase
               </h2>
 
-              <div className="mb-6">
-                <div className="flex items-center space-x-4">
+              {/* Progress Indicator */}
+              <div className="mb-8">
+                <div className="flex items-center justify-center space-x-2">
                   {[1, 2, 3].map((stepNumber) => (
-                    <div key={stepNumber} className="flex items-center">
+                    <React.Fragment key={stepNumber}>
                       <div
-                        className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                        className={`w-10 h-10 rounded-full flex items-center justify-center text-lg font-semibold ${
                           step === stepNumber
-                            ? "bg-blue-600 text-white"
+                            ? "bg-blue-600 text-white shadow-lg"
                             : step > stepNumber
                             ? "bg-green-500 text-white"
                             : "bg-gray-200 text-gray-600"
@@ -284,46 +341,52 @@ const index = () => {
                       </div>
                       {stepNumber < 3 && (
                         <div
-                          className={`w-12 h-1 ${
+                          className={`w-16 h-1 ${
                             step > stepNumber ? "bg-green-500" : "bg-gray-200"
                           }`}
                         ></div>
                       )}
-                    </div>
+                    </React.Fragment>
                   ))}
                 </div>
               </div>
+
               <form onSubmit={handlesubmit} className="space-y-6">
                 {step === 1 && (
-                  <div className="space-y-4">
+                  <div className="space-y-6">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        <User className="w-4 h-4 inline mr-1" /> Full Name
+                      <label className="flex items-center text-sm font-semibold text-gray-700 mb-2">
+                        <User className="w-5 h-5 mr-2 text-gray-600" />
+                        Full Name
                       </label>
                       <input
                         type="text"
                         name="name"
                         value={formData.name}
                         onChange={handleInputChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="Enter your full name"
+                        className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
                         required
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        <Phone className="w-4 h-4 inline mr-1" /> Phone Number
+                      <label className="flex items-center text-sm font-semibold text-gray-700 mb-2">
+                        <Phone className="w-5 h-5 mr-2 text-gray-600" />
+                        Phone Number
                       </label>
                       <input
                         type="tel"
                         name="phone"
                         value={formData.phone}
                         onChange={handleInputChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="Enter your phone number"
+                        className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
                         required
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="flex items-center text-sm font-semibold text-gray-700 mb-2">
+                        <Mail className="w-5 h-5 mr-2 text-gray-600" />
                         Email Address
                       </label>
                       <input
@@ -331,7 +394,8 @@ const index = () => {
                         name="email"
                         value={formData.email}
                         onChange={handleInputChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="Enter your email address"
+                        className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
                         required
                       />
                     </div>
@@ -349,10 +413,13 @@ const index = () => {
                         name="preferredDate"
                         value={formData.preferredDate}
                         onChange={handleInputChange}
-                        min={new Date().toISOString().split("T")[0]}
+                        min={new Date().toISOString().split('T')[0]}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
                         required
                       />
+                      <p className="text-xs text-gray-500 mt-1">
+                        Please select a future date
+                      </p>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -446,7 +513,7 @@ const index = () => {
                     <button
                       type="button"
                       onClick={() => setstep(step - 1)}
-                      className="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
+                      className="px-6 py-3 text-gray-700 border-2 border-gray-300 rounded-lg hover:bg-gray-50 font-medium transition-all"
                     >
                       Back
                     </button>
@@ -456,11 +523,11 @@ const index = () => {
                     <button
                       type="button"
                       onClick={() => validatestep() && setstep(step + 1)}
-                      className={`px-6 py-2 rounded-md text-white ${
+                      className={`px-8 py-3 rounded-lg text-white font-semibold transition-all ${
                         validatestep()
-                          ? "bg-blue-600 hover:bg-blue-700"
+                          ? "bg-blue-600 hover:bg-blue-700 shadow-lg hover:shadow-xl"
                           : "bg-gray-400 cursor-not-allowed"
-                      }`}
+                      } ${step === 1 ? "ml-auto" : ""}`}
                       disabled={!validatestep()}
                     >
                       Continue
@@ -468,9 +535,21 @@ const index = () => {
                   ) : (
                     <button
                       type="submit"
-                      className="px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
+                      disabled={isSubmitting}
+                      className={`px-8 py-3 bg-green-600 text-white rounded-lg font-semibold shadow-lg hover:shadow-xl transition-all ml-auto ${
+                        isSubmitting 
+                          ? "opacity-50 cursor-not-allowed" 
+                          : "hover:bg-green-700"
+                      }`}
                     >
-                      Complete Purchase
+                      {isSubmitting ? (
+                        <span className="flex items-center">
+                          <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white mr-2"></div>
+                          Processing...
+                        </span>
+                      ) : (
+                        "Complete Purchase"
+                      )}
                     </button>
                   )}
                 </div>
@@ -484,3 +563,9 @@ const index = () => {
 };
 
 export default index;
+
+export async function getServerSideProps() {
+  return {
+    props: {},
+  };
+}

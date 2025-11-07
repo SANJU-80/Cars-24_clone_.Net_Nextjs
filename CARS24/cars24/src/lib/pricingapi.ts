@@ -733,11 +733,19 @@ export const detectUserRegion = async (): Promise<string> => {
 
 // Helper function to format price
 export const formatPrice = (price: number): string => {
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    maximumFractionDigits: 0
-  }).format(price);
+  const absoluteValue = Math.trunc(Math.abs(price));
+  const sign = price < 0 ? '-' : '';
+  const priceString = absoluteValue.toString();
+
+  if (priceString.length <= 3) {
+    return `${sign}₹${priceString}`;
+  }
+
+  const lastThree = priceString.slice(-3);
+  const remaining = priceString.slice(0, -3);
+  const grouped = remaining.replace(/\B(?=(\d{2})+(?!\d))/g, ',');
+
+  return `${sign}₹${grouped},${lastThree}`;
 };
 
 // Helper function to format percentage

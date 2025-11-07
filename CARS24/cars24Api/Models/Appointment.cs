@@ -1,7 +1,7 @@
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 
-namespace Cars24Api.Models
+namespace cars24Api.Models
 {
     public class Appointment
     {

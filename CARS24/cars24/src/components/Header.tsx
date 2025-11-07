@@ -22,32 +22,37 @@ import {
 import { Button } from "./ui/button";
 import { useAuth } from "@/context/AuthContext";
 import NotificationBell from "./NotificationBell";
-
-// Move arrays outside component to prevent hydration issues
-const navItems = [
- 
-  { name: "Buy used car", href: "/buy-car" },
-  { name: "Sell car", href: "/sell-car" },
-  { name: "Car finance", href: "/finance" },
-  { name: "New cars", href: "/new-cars" },
-  { name: "Car services", href: "/services" },
-  { name: "Maintenance Estimator", href: "/maintenance-estimator" },
-  { name: "Market Pricing", href: "/pricing" },
-];
-
-const menuItems = [
-  { label: "My Appointments", icon: Calendar, link: "/appointments" },
-  { label: "My Bookings", icon: Package, link: "/bookings" },
-  { label: "My Orders", icon: FileText, link: "/orders" },
-  { label: "Resources", icon: FileText, link: "/resources" },
-  { label: "RC Transfer Status", icon: FileText, link: "/rc-transfer" },
-  { label: "Become Our Partner", icon: Users, link: "/partner" },
-  { label: "FAQ", icon: HelpCircle, link: "/faq" },
-];
-
+import { useRouter } from "next/router";
 const Header = () => {
-  const { user, signOut, isClient } = useAuth();
+  const navItems = [
+    { name: "Buy used car", href: "/buy-car" },
+    { name: "Sell car", href: "/sell-car" },
+    { name: "Car finance", href: "/finance" },
+    { name: "New cars", href: "/new-cars" },
+    { name: "Car services", href: "/services" },
+    { name: "Maintenance", href: "/maintenance" },
+    { name: "Market Pricing", href: "/pricing" },
+  ];
+  const menuItems = [
+    { label: "My Appointments", icon: Calendar, link: "/appointments" },
+    { label: "My Bookings", icon: Package, link: "/bookings" },
+    { label: "My Orders", icon: FileText, link: "/orders" },
+    { label: "Resources", icon: FileText, link: "/resources" },
+    { label: "RC Transfer Status", icon: FileText, link: "/rc-transfer" },
+    { label: "Become Our Partner", icon: Users, link: "/partner" },
+    { label: "FAQ", icon: HelpCircle, link: "/faq" },
+  ];
+  // const user = {
+  //   id: "1",
+  //   avatar_url: "https://github.com/shadcn.png",
+  //   email: "giris@gmail.com",
+  //   full_name: "John Doe",
+  //   phone: "+1234567890",
+  //   created_at: new Date().toISOString(),
+  // };
+  const { user, signOut } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const router = useRouter();
   return (
     <header className="bg-white shadow-sm sticky top-0 z-50">
       <nav
@@ -55,7 +60,7 @@ const Header = () => {
         aria-label="Global"
       >
         <div className="flex lg:flex-1">
-          <Link href="/" className="-m-1.5 p-1.5" prefetch={false}>
+          <Link href="/" className="-m-1.5 p-1.5">
             <span className="sr-only">Cars24</span>
             <div className="flex items-center">
               <span className="bg-blue-600 text-white font-bold py-1 px-2 rounded-md text-lg">
@@ -81,8 +86,12 @@ const Header = () => {
             <div key={item.name} className="relative group">
               <Link
                 href={item.href}
+                onClick={(event) => {
+                  if (router.pathname === item.href) {
+                    event.preventDefault();
+                  }
+                }}
                 className="flex items-center text-sm font-medium text-gray-900 hover:text-blue-600"
-                prefetch={false}
               >
                 {item.name}
               </Link>
@@ -90,6 +99,7 @@ const Header = () => {
           ))}
         </div>
         <div className="hidden lg:flex lg:flex-1 lg:justify-end items-center space-x-4">
+          {user && <NotificationBell />}
           <Button
             variant="ghost"
             size="sm"
@@ -98,14 +108,13 @@ const Header = () => {
             <Heart className="mr-1 h-4 w-4" />
             <span>Wishlist</span>
           </Button>
-          {isClient && user && <NotificationBell />}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
                 variant="ghost"
                 className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-gray-700 hover:text-orange-500"
               >
-                {isClient && user ? (
+                {user ? (
                   <>
                     <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden">
                       {user?.fullName ? (
@@ -127,24 +136,23 @@ const Header = () => {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-72">
-              {isClient && user ? (
+              {user ? (
                 <>
                   <DropdownMenuItem asChild>
                     <Link
                       href="/profile"
                       className="w-full flex items-center gap-2"
-                      prefetch={false}
                     >
                       Profile Settings
                     </Link>
                   </DropdownMenuItem>
+
                   <DropdownMenuItem asChild>
                     <Link
-                      href="/notifications"
+                      href="/profile/notifications"
                       className="w-full flex items-center gap-2"
-                      prefetch={false}
                     >
-                      Notifications
+                      Notification Preferences
                     </Link>
                   </DropdownMenuItem>
 
@@ -175,7 +183,7 @@ const Header = () => {
               {/* Common menu items */}
               {menuItems.map(({ label, icon: Icon, link }) => (
                 <DropdownMenuItem asChild key={label}>
-                  <Link href={link} className="flex items-center gap-3 w-full" prefetch={false}>
+                  <Link href={link} className="flex items-center gap-3 w-full">
                     <Icon className="h-4 w-4 text-muted-foreground" />
                     {label}
                   </Link>

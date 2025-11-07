@@ -24,6 +24,17 @@ The `pages/api` directory is mapped to `/api/*`. Files in this directory are tre
 
 This project uses [`next/font`](https://nextjs.org/docs/pages/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Environment configuration
+
+Create a `.env.local` in the `cars24` directory before running the app. At minimum set:
+
+```
+NEXT_PUBLIC_API_BASE_URL=http://localhost:5092
+NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=<your-google-maps-javascript-key>
+```
+
+`NEXT_PUBLIC_API_BASE_URL` points the frontend to your .NET backend (defaults to the deployed Render API if omitted). `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` enables geocoding, autocomplete, and map visualisation on the Buy Car flow.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

@@ -1,118 +1,27 @@
 "use client";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
-import { getcarSummaries } from "@/lib/Carapi";
-import { ChevronDown, Heart, Search, Sliders } from "lucide-react";
-import Link from "next/link";
-import React, { useEffect, useState, useMemo } from "react";
-// ImageDebugger removed - no longer needed
+import SearchWithSuggestions from "@/components/SearchWithSuggestions";
+import LocationSelector from "@/components/location/LocationSelector";
+import ServiceCentersMap from "@/components/map/ServiceCentersMap";
+import { getServiceCentersForLocation, type ServiceCenterWithDistance } from "@/data/serviceCenters";
+import { searchCars, type SearchResult } from "@/lib/Carapi";
+import type { LocationSelection } from "@/lib/location";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+  AlertCircle,
+  Clock,
+  Heart,
+  MapPin,
+  Phone,
+  Route,
+  Sliders,
+  ShoppingCart,
+  Store,
+  X,
+} from "lucide-react";
+import Link from "next/link";
+import React, { useCallback, useEffect, useState } from "react";
 
-// No hardcoded cars - all data comes from API
-// const cars = [
-//   {
-//     id: "fronx-2023",
-//     title: "2023 Maruti FRONX DELTA PLUS 1.2L AGS",
-//     km: "10,048",
-//     fuel: "Petrol",
-//     transmission: "Auto",
-//     owner: "1st owner",
-//     emi: "₹15,245/m",
-//     price: "₹7.80 lakh",
-//     location: "Metro Walk, Rohini, New Delhi",
-//     image: "https://images.pexels.com/photos/170811/pexels-photo-170811.jpeg",
-//   },
-//   {
-//     id: "swift-2017",
-//     title: "2017 Maruti Swift VXI (O)",
-//     km: "60,056",
-//     fuel: "Petrol",
-//     transmission: "Manual",
-//     owner: "1st owner",
-//     emi: "₹7,214/m",
-//     price: "₹3.69 lakh",
-//     location: "Metro Walk, Rohini, New Delhi",
-//     image: "https://images.pexels.com/photos/116675/pexels-photo-116675.jpeg",
-//   },
-//   {
-//     id: "creta-2021",
-//     title: "2021 Hyundai Creta SX IVT",
-//     km: "20,500",
-//     fuel: "Petrol",
-//     transmission: "Auto",
-//     owner: "1st owner",
-//     emi: "₹18,999/m",
-//     price: "₹11.20 lakh",
-//     location: "Sector 29, Gurugram",
-//     image: "https://images.pexels.com/photos/358070/pexels-photo-358070.jpeg",
-//   },
-//   {
-//     id: "baleno-2020",
-//     title: "2020 Maruti Baleno ZETA",
-//     km: "30,000",
-//     fuel: "Petrol",
-//     transmission: "Manual",
-//     owner: "2nd owner",
-//     emi: "₹10,600/m",
-//     price: "₹6.45 lakh",
-//     location: "Karol Bagh, New Delhi",
-//     image: "https://images.pexels.com/photos/112460/pexels-photo-112460.jpeg",
-//   },
-//   {
-//     id: "eco-2018",
-//     title: "2018 Maruti Eeco 5 STR WITH A/C+HTR",
-//     km: "45,000",
-//     fuel: "Petrol",
-//     transmission: "Manual",
-//     owner: "1st owner",
-//     emi: "₹5,300/m",
-//     price: "₹3.10 lakh",
-//     location: "Lajpat Nagar, New Delhi",
-//     image: "https://images.pexels.com/photos/358070/pexels-photo-358070.jpeg",
-//   },
-//   {
-//     id: "city-2019",
-//     title: "2019 Honda City ZX CVT",
-//     km: "25,000",
-//     fuel: "Petrol",
-//     transmission: "Auto",
-//     owner: "1st owner",
-//     emi: "₹16,500/m",
-//     price: "₹9.95 lakh",
-//     location: "South Ex, New Delhi",
-//     image: "https://images.pexels.com/photos/244206/pexels-photo-244206.jpeg",
-//   },
-//   {
-//     id: "venue-2022",
-//     title: "2022 Hyundai Venue SX Turbo",
-//     km: "12,000",
-//     fuel: "Petrol",
-//     transmission: "Auto",
-//     owner: "1st owner",
-//     emi: "₹14,875/m",
-//     price: "₹9.40 lakh",
-//     location: "Noida Sector 63, Uttar Pradesh",
-//     image: "https://images.pexels.com/photos/244206/pexels-photo-244206.jpeg",
-//   },
-//   {
-//     id: "altroz-2021",
-//     title: "2021 Tata Altroz XT Petrol",
-//     km: "18,000",
-//     fuel: "Petrol",
-//     transmission: "Manual",
-//     owner: "1st owner",
-//     emi: "₹9,350/m",
-//     price: "₹6.75 lakh",
-//     location: "Dwarka, New Delhi",
-//     image: "https://images.pexels.com/photos/1280560/pexels-photo-1280560.jpeg",
-//   },
-// ];
 interface Car {
   id: string;
   title: string;
@@ -124,7 +33,10 @@ interface Car {
   price: string;
   location: string;
   image: string;
+  year?: number;
+  relevanceScore?: number;
 }
+
 function LoaderCard() {
   return (
     <div className="bg-white rounded-lg shadow-md animate-pulse overflow-hidden">
@@ -138,270 +50,511 @@ function LoaderCard() {
     </div>
   );
 }
-// Helper function to format numbers consistently without locale dependencies
-const formatPrice = (num: number): string => {
-  return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-};
 
 const index = () => {
-  const [priceRange, setPriceRange] = useState([0, 10000000]);
-  const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
-  const [cars, setCars] = useState<Car[] | null>(null);
+  // Search state
   const [searchQuery, setSearchQuery] = useState("");
-  const [sortBy, setSortBy] = useState("price-low-to-high");
+  
+  // Filter states
+  const [priceRange, setPriceRange] = useState([0, 10000000]);
+  const [fuelType, setFuelType] = useState<string>("");
+  const [transmission, setTransmission] = useState<string>("");
+  const [minYear, setMinYear] = useState<number | undefined>(undefined);
+  const [maxYear, setMaxYear] = useState<number | undefined>(undefined);
+  const [mileageRange, setMileageRange] = useState([0, 200000]);
+  const [location, setLocation] = useState("");
+  const [locationLabel, setLocationLabel] = useState("");
+  const [selectedCity, setSelectedCity] = useState("");
+  const [userCoordinates, setUserCoordinates] = useState<{ lat: number; lng: number } | null>(null);
+  const [nearbyServiceCenters, setNearbyServiceCenters] = useState<ServiceCenterWithDistance[]>([]);
+  const [locationError, setLocationError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const fetchCars = async () => {
-      const car = await getcarSummaries();
-      setCars(car);
-    };
-    fetchCars();
+  const handleLocationSelect = useCallback(
+    (selection: LocationSelection) => {
+      const cleanedCity = selection.city.trim();
+      setSelectedCity(cleanedCity);
+      setLocation(cleanedCity);
+      setLocationLabel(selection.formattedAddress || cleanedCity);
+      setUserCoordinates(selection.coordinates ?? null);
+      setLocationError(null);
+    },
+    []
+  );
+
+  const handleLocationClear = useCallback(() => {
+    setLocation("");
+    setSelectedCity("");
+    setLocationLabel("");
+    setUserCoordinates(null);
+    setNearbyServiceCenters([]);
+    setLocationError(null);
   }, []);
 
+  const handleLocationError = useCallback((message: string | null) => {
+    setLocationError(message);
+  }, []);
+  
+  // UI state
+  const [cars, setCars] = useState<Car[] | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [totalResults, setTotalResults] = useState(0);
+  const [showFilters, setShowFilters] = useState(true);
 
+  // Generate year options
+  const currentYear = new Date().getFullYear();
+  const years = Array.from({ length: 30 }, (_, i) => currentYear - i);
 
-  // Filter and sort cars based on current filters
-  const filteredAndSortedCars = useMemo(() => {
-    if (!cars) return null;
+  useEffect(() => {
+    if (!selectedCity && !userCoordinates) {
+      setNearbyServiceCenters([]);
+      return;
+    }
 
-    let filteredCars = cars.filter((car) => {
-      // Price range filter
-      const carPrice = parseInt(car.price.replace(/[^\d]/g, "")) || 0;
-      const inPriceRange = carPrice >= priceRange[0] && carPrice <= priceRange[1];
-
-      // Brand filter
-      const brandMatch = selectedBrands.length === 0 || 
-        selectedBrands.some(brand => car.title.toLowerCase().includes(brand.toLowerCase()));
-
-      // Search filter
-      const searchMatch = searchQuery === "" || 
-        car.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        car.location.toLowerCase().includes(searchQuery.toLowerCase());
-
-      return inPriceRange && brandMatch && searchMatch;
+    const centers = getServiceCentersForLocation({
+      city: selectedCity || undefined,
+      coordinates: userCoordinates ?? undefined,
+      limit: 6,
     });
 
-    // Sort cars
-    filteredCars.sort((a, b) => {
-      const priceA = parseInt(a.price.replace(/[^\d]/g, "")) || 0;
-      const priceB = parseInt(b.price.replace(/[^\d]/g, "")) || 0;
+    setNearbyServiceCenters(centers);
+  }, [selectedCity, userCoordinates]);
 
-      switch (sortBy) {
-        case "price-low-to-high":
-          return priceA - priceB;
-        case "price-high-to-low":
-          return priceB - priceA;
-        case "km-low-to-high":
-          const kmA = parseInt(a.km.replace(/[^\d]/g, "")) || 0;
-          const kmB = parseInt(b.km.replace(/[^\d]/g, "")) || 0;
-          return kmA - kmB;
-        case "km-high-to-low":
-          const kmA2 = parseInt(a.km.replace(/[^\d]/g, "")) || 0;
-          const kmB2 = parseInt(b.km.replace(/[^\d]/g, "")) || 0;
-          return kmB2 - kmA2;
-        default:
-          return 0;
+  // Transform search results to Car format
+  const transformCar = (result: SearchResult): Car => ({
+    id: result.Id,
+    title: result.Title,
+    km: result.km,
+    fuel: result.Fuel,
+    transmission: result.Transmission,
+    owner: result.Owner,
+    emi: result.Emi,
+    price: result.Price,
+    location: result.Location,
+    image: Array.isArray(result.image) 
+      ? result.image[0] || "" 
+      : result.image || "",
+    year: result.Year,
+    relevanceScore: result.RelevanceScore,
+  });
+
+  // Perform search
+  const performSearch = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const response = await searchCars({
+        query: searchQuery || undefined,
+        fuelType: fuelType || undefined,
+        transmission: transmission || undefined,
+        minYear: minYear,
+        maxYear: maxYear,
+        minMileage: mileageRange[0] > 0 ? mileageRange[0] : undefined,
+        maxMileage: mileageRange[1] < 200000 ? mileageRange[1] : undefined,
+        minPrice: priceRange[0] > 0 ? priceRange[0] : undefined,
+        maxPrice: priceRange[1] < 10000000 ? priceRange[1] : undefined,
+        location: location || undefined,
+        limit: 50,
+      });
+
+      // Ensure results is an array before mapping
+      const results = Array.isArray(response?.results) ? response.results : [];
+      const transformedCars = results.map(transformCar);
+      setCars(transformedCars);
+      setTotalResults(response?.total || 0);
+    } catch (error) {
+      console.error("Error searching cars:", error);
+      setCars([]);
+      setTotalResults(0);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [searchQuery, fuelType, transmission, minYear, maxYear, mileageRange, priceRange, location]);
+
+  // Debounced search - separate effect for search query, immediate for filters
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      performSearch();
+    }, searchQuery ? 500 : 0); // Debounce only for search query, immediate for filters
+
+    return () => clearTimeout(timeoutId);
+  }, [performSearch, searchQuery]);
+
+  const handleClearFilters = () => {
+    setSearchQuery("");
+    setPriceRange([0, 10000000]);
+    setFuelType("");
+    setTransmission("");
+    setMinYear(undefined);
+    setMaxYear(undefined);
+    setMileageRange([0, 200000]);
+    handleLocationClear();
+  };
+
+  const hasActiveFilters = 
+    searchQuery ||
+    fuelType ||
+    transmission ||
+    minYear !== undefined ||
+    maxYear !== undefined ||
+    mileageRange[0] > 0 ||
+    mileageRange[1] < 200000 ||
+    priceRange[0] > 0 ||
+    priceRange[1] < 10000000 ||
+    location;
+
+  const formatNumberForDisplay = (value: number) => {
+    const absolute = Math.trunc(Math.abs(value));
+    const digits = absolute.toString().split('').reverse();
+    const parts: string[] = [];
+
+    for (let idx = 0; idx < digits.length; idx++) {
+      parts.push(digits[idx]);
+      if (idx === 2 || (idx > 2 && (idx - 2) % 2 === 0)) {
+        parts.push(',');
       }
-    });
+    }
 
-    return filteredCars;
-  }, [cars, priceRange, selectedBrands, searchQuery, sortBy]);
+    if (parts[parts.length - 1] === ',') {
+      parts.pop();
+    }
+
+    const formatted = parts.reverse().join('');
+    return value < 0 ? `-${formatted}` : formatted;
+  };
+
   return (
-    <div className="bg-gray-100">
-      {/* ImageDebugger removed - no longer needed */}
+    <div className="bg-gray-100 min-h-screen">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 bg-white text-black">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          {/* filter */}
-          <div className="md:col-span-1 space-y-6">
-            <div className="bg-white p-4 rounded-lg shadow">
-              <h3 className="font-semibold mb-4">Filters</h3>
-              <div className="space-y-4">
+          {/* Filters Sidebar */}
+          <div className="md:col-span-1">
+            <div className="bg-white p-4 rounded-lg shadow sticky top-4">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="font-semibold text-lg">Filters</h3>
+                {hasActiveFilters && (
+                  <button
+                    onClick={handleClearFilters}
+                    className="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                  >
+                    <X className="h-4 w-4" />
+                    Clear All
+                  </button>
+                )}
+              </div>
+              
+              <div className="space-y-6 max-h-[calc(100vh-200px)] overflow-y-auto">
+                {/* Year Range */}
                 <div>
                   <label className="text-sm font-medium mb-2 block">
-                    Price Range
+                    Year of Manufacture
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <select
+                      className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm"
+                      value={minYear || ""}
+                      onChange={(e) => setMinYear(e.target.value ? parseInt(e.target.value) : undefined)}
+                    >
+                      <option value="">Min Year</option>
+                      {years.map((year) => (
+                        <option key={year} value={year}>
+                          {year}
+                        </option>
+                      ))}
+                    </select>
+                    <select
+                      className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm"
+                      value={maxYear || ""}
+                      onChange={(e) => setMaxYear(e.target.value ? parseInt(e.target.value) : undefined)}
+                    >
+                      <option value="">Max Year</option>
+                      {years.map((year) => (
+                        <option key={year} value={year}>
+                          {year}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Price Range */}
+                <div>
+                  <label className="text-sm font-medium mb-2 block">
+                    Price Range (₹)
                   </label>
                   <Slider
-                    defaultValue={[0, 10000000]}
+                    min={0}
                     max={10000000}
-                    step={100000}
+                    step={50000}
                     value={priceRange}
                     onValueChange={setPriceRange}
                     className="mt-2"
                   />
-                  <div className="flex justify-between mt-2 text-sm text-gray-900 font-medium">
-                    <span>₹{formatPrice(priceRange[0])}</span>
-                    <span>₹{formatPrice(priceRange[1])}</span>
+                  <div className="flex justify-between mt-2 text-xs text-gray-600">
+                    <span>₹{(priceRange[0] / 100000).toFixed(1)}L</span>
+                    <span>₹{(priceRange[1] / 100000).toFixed(1)}L</span>
                   </div>
                 </div>
+
+                {/* Mileage Range */}
                 <div>
                   <label className="text-sm font-medium mb-2 block">
-                    Brand
+                    Mileage Range (km)
                   </label>
-                  <div className="space-y-2">
-                    {[
-                      "Maruti", 
-                      "Hyundai", 
-                      "Honda", 
-                      "Tata", 
-                      "Toyota", 
-                      "Mahindra", 
-                      "Ford", 
-                      "Volkswagen", 
-                      "Skoda", 
-                      "Kia"
-                    ].map((brand) => (
-                      <label key={brand} className="flex items-center">
-                        <input
-                          type="checkbox"
-                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                          checked={selectedBrands.includes(brand)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setSelectedBrands([...selectedBrands, brand]);
-                            } else {
-                              setSelectedBrands(
-                                selectedBrands.filter((b) => b !== brand)
-                              );
-                            }
-                          }}
-                        />
-                        <span className="ml-2 text-sm text-gray-900 font-medium">{brand}</span>
-                      </label>
-                    ))}
+                  <Slider
+                    min={0}
+                    max={200000}
+                    step={5000}
+                    value={mileageRange}
+                    onValueChange={setMileageRange}
+                    className="mt-2"
+                  />
+                  <div className="flex justify-between mt-2 text-xs text-gray-600">
+                    <span>{formatNumberForDisplay(mileageRange[0])} km</span>
+                    <span>{formatNumberForDisplay(mileageRange[1])} km</span>
                   </div>
                 </div>
+
+                {/* Location */}
+                <LocationSelector
+                  selectedLabel={locationLabel}
+                  onSelect={handleLocationSelect}
+                  onClear={handleLocationClear}
+                  onError={handleLocationError}
+                  />
               </div>
             </div>
           </div>
-          {/* cars grid */}
+
+          {/* Main Content */}
           <div className="md:col-span-3">
-            <div className="flex justify-between items-center mb-6">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
               <div>
-                <h1 className="text-2xl font-bold">Used Cars in Delhi NCR</h1>
-                {filteredAndSortedCars && (
+                <h1 className="text-2xl font-bold">Used Cars</h1>
+                {totalResults > 0 && (
                   <p className="text-sm text-gray-600 mt-1">
-                    {filteredAndSortedCars.length} cars found
+                    {totalResults} {totalResults === 1 ? "car found" : "cars found"}
                   </p>
                 )}
               </div>
-              <div className="flex items-center space-x-4">
-                <div className="relative">
-                  <Input
-                    type="text"
-                    placeholder="Search cars..."
-                    className="pl-10"
+              <div className="flex items-center gap-4 w-full sm:w-auto">
+                <div className="flex-1 sm:flex-initial sm:w-80">
+                  <SearchWithSuggestions
                     value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onChange={setSearchQuery}
+                    onSearch={performSearch}
+                    placeholder="Search by brand, model, or location..."
                   />
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                 </div>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className="flex items-center text-gray-700 bg-white border-gray-300"
-                    >
-                      <Sliders className="h-4 w-4 mr-2" />
-                      Sort
-                      <ChevronDown className="h-4 w-4 ml-2" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-56">
-                    <DropdownMenuItem onClick={() => setSortBy("price-low-to-high")}>
-                      Price: Low to High
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setSortBy("price-high-to-low")}>
-                      Price: High to Low
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setSortBy("km-low-to-high")}>
-                      Mileage: Low to High
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setSortBy("km-high-to-low")}>
-                      Mileage: High to Low
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                <Button
+                  variant="outline"
+                  className="flex items-center text-gray-700 hover:text-blue-600"
+                  onClick={() => setShowFilters(!showFilters)}
+                >
+                  <Sliders className="h-4 w-4 mr-2" />
+                  Filters
+                </Button>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredAndSortedCars === null
-                ? Array.from({ length: 6 }).map((_N_E_STYLE_LOAD, index) => (
-                    <LoaderCard key={index} />
-                  ))
-                : filteredAndSortedCars.length === 0
-                ? (
-                    <div className="col-span-full text-center py-12">
-                      <p className="text-gray-500 text-lg">No cars found matching your criteria.</p>
-                      <p className="text-gray-400 text-sm mt-2">Try adjusting your filters or search terms.</p>
+            {locationError && (
+              <div className="mb-4 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+                <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                <span>{locationError}</span>
+              </div>
+            )}
+
+            {locationLabel && (
+              <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+                <MapPin className="h-4 w-4 flex-shrink-0" />
+                <span>
+                  Showing listings near <span className="font-semibold">{locationLabel}</span>. Update the city to explore other regions.
+                </span>
+              </div>
+            )}
+
+            {(locationLabel || nearbyServiceCenters.length > 0) && (
+              <section className="mb-6">
+                <div className="rounded-lg bg-white p-4 shadow">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <h2 className="flex items-center gap-2 text-lg font-semibold text-gray-900">
+                        <Store className="h-5 w-5 text-blue-600" />
+                        Nearby service support
+                      </h2>
+                      <p className="text-sm text-gray-500">
+                        {locationLabel
+                          ? `Based on ${locationLabel}.`
+                          : "Select a city or use your current location to discover service centers and pickup points near you."}
+                      </p>
                     </div>
-                  )
-                : filteredAndSortedCars.map((car) => (
+                    {locationLabel && (
+                      <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-medium text-blue-700">
+                        {locationLabel}
+                      </span>
+                    )}
+                  </div>
+                  <div className="mt-4 grid gap-4 lg:grid-cols-3">
+                    <div className="lg:col-span-2">
+                      <ServiceCentersMap
+                        serviceCenters={nearbyServiceCenters}
+                        center={userCoordinates}
+                        fallbackCenter={nearbyServiceCenters[0] ? { lat: nearbyServiceCenters[0].lat, lng: nearbyServiceCenters[0].lng } : undefined}
+                        className="min-h-[280px]"
+                      />
+                    </div>
+                    <div className="space-y-3">
+                      {nearbyServiceCenters.length > 0 ? (
+                        nearbyServiceCenters.map((center) => (
+                          <div
+                            key={center.id}
+                            className="rounded-lg border border-gray-200 p-3 shadow-sm transition hover:border-blue-200"
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div>
+                                <p className="font-semibold text-gray-900">{center.name}</p>
+                                <p className="text-xs text-gray-500">{center.address}</p>
+                              </div>
+                              <span
+                                className={`rounded-full px-2 py-1 text-[11px] font-medium ${
+                                  center.type === "service"
+                                    ? "bg-blue-100 text-blue-700"
+                                    : "bg-orange-100 text-orange-700"
+                                }`}
+                              >
+                                {center.type === "service" ? "Service Hub" : "Pickup Point"}
+                              </span>
+                            </div>
+                            {center.distanceKm !== undefined && (
+                              <div className="mt-2 flex items-center gap-1 text-xs text-gray-500">
+                                <Route className="h-3.5 w-3.5 text-gray-400" />
+                                {center.distanceKm} km away
+                              </div>
+                            )}
+                            {center.hours && (
+                              <div className="mt-1 flex items-center gap-1 text-xs text-gray-500">
+                                <Clock className="h-3.5 w-3.5 text-gray-400" />
+                                {center.hours}
+                              </div>
+                            )}
+                            {center.phone && (
+                              <div className="mt-1 flex items-center gap-1 text-xs text-gray-500">
+                                <Phone className="h-3.5 w-3.5 text-gray-400" />
+                                {center.phone}
+                              </div>
+                            )}
+                          </div>
+                        ))
+                      ) : (
+                        <p className="rounded-md border border-dashed border-blue-200 bg-blue-50/70 p-3 text-xs text-blue-600">
+                          Choose a city to view certified service centers and convenient pickup points nearby.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </section>
+            )}
+
+            {/* Results */}
+            {isLoading ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {Array.from({ length: 6 }).map((_, index) => (
+                  <LoaderCard key={index} />
+                ))}
+              </div>
+            ) : cars && cars.length > 0 ? (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {cars.map((car) => (
                     <div
                       key={car.id}
-                      className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow"
+                      className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow flex flex-col"
                     >
-                      <Link href={`/buy-car/${car.id}`}>
-                        <div className="relative">
+                      <Link href={`/buy-car/${car.id}`} className="flex-1">
+                        <div className="relative h-48">
                           <img
-                            src={car.image}
+                            src={car.image || "https://via.placeholder.com/400x300?text=No+Image"}
                             alt={car.title}
-                            className="w-full h-auto"
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).src = "https://via.placeholder.com/400x300?text=No+Image";
+                            }}
                           />
-                          <button className="absolute top-2 right-2 p-1.5 bg-white/80 rounded-full hover:bg-white">
+                          <button
+                            className="absolute top-2 right-2 p-1.5 bg-white/80 rounded-full hover:bg-white z-10"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                            }}
+                          >
                             <Heart className="h-4 w-4 text-gray-500 hover:text-red-500" />
                           </button>
+                          {car.relevanceScore && car.relevanceScore > 50 && (
+                            <div className="absolute top-2 left-2 px-2 py-1 bg-blue-600 text-white text-xs rounded">
+                              Best Match
+                            </div>
+                          )}
                         </div>
                         <div className="p-4">
-                          <h3 className="font-semibold text-lg mb-2">
+                          <h3 className="font-semibold text-lg mb-2 line-clamp-2">
                             {car.title}
                           </h3>
-                          <div className="flex items-center justify-between mb-2">
-                            <div className="text-sm text-gray-600">
-                              {car.km} km
-                            </div>
-                            <div className="text-sm text-gray-600">
-                              {car.transmission}
-                            </div>
-                            <div className="text-sm text-gray-600">
-                              {car.fuel}
-                            </div>
-                            <div className="text-sm text-gray-600">
-                              {car.owner}
-                            </div>
+                          <div className="flex flex-wrap items-center gap-2 mb-2 text-xs text-gray-600">
+                            <span>{car.km} km</span>
+                            <span>•</span>
+                            <span>{car.transmission}</span>
+                            <span>•</span>
+                            <span>{car.fuel}</span>
+                            {car.year && (
+                              <>
+                                <span>•</span>
+                                <span>{car.year}</span>
+                              </>
+                            )}
                           </div>
-                          <div className="flex items-center justify-between">
+                          <div className="flex items-center justify-between mb-2">
                             <div>
-                              <div className="text-sm text-gray-600">
-                                EMI from
-                              </div>
-                              <div className="font-semibold">{car.emi}</div>
+                              <div className="text-xs text-gray-600">EMI from</div>
+                              <div className="font-semibold text-sm">{car.emi}</div>
                             </div>
                             <div className="text-right">
-                              <div className="text-sm text-gray-600">Price</div>
+                              <div className="text-xs text-gray-600">Price</div>
                               <div className="font-semibold">{car.price}</div>
                             </div>
                           </div>
-                          <div className="mt-2 text-xs text-gray-500">
+                          <div className="text-xs text-gray-500 truncate">
                             {car.location}
                           </div>
                         </div>
                       </Link>
-                      <div className="px-4 pb-4">
-                        <Button 
-                          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            // Handle buy now action
-                            window.location.href = `/buy-car/${car.id}`;
-                          }}
-                        >
-                          Buy Now
-                        </Button>
+                      <div className="p-4 pt-0">
+                        <Link href={`/buy-car/${car.id}`}>
+                          <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-lg transition-all">
+                            <ShoppingCart className="h-4 w-4 mr-2" />
+                            Buy Car
+                          </Button>
+                        </Link>
                       </div>
                     </div>
                   ))}
-            </div>
+                </div>
+              </>
+            ) : (
+              <div className="text-center py-12">
+                <p className="text-gray-500 text-lg mb-2">No cars found</p>
+                <p className="text-gray-400 text-sm">
+                  Try adjusting your search criteria or filters
+                </p>
+                {hasActiveFilters && (
+                  <Button
+                    onClick={handleClearFilters}
+                    className="mt-4"
+                    variant="outline"
+                  >
+                    Clear All Filters
+                  </Button>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>
